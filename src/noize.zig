@@ -301,12 +301,10 @@ const Delay = struct {
         allo.free(self.buffer);
     }
 
-    fn eval(self: Delay, now: u64, input: []f32, output: []f32) void {
+    fn eval(self: *Delay, now: u64, input: []f32, output: []f32) void {
         _ = now;
         output[0] = self.buffer[self.pos];
         self.buffer[self.pos] = input[0];
-        std.debug.print("{}\n", .{@TypeOf(self.pos)});
-        // BUG self.pos est considéré comme étant `const` et je ne sais pas pourquoi
         self.pos = (self.pos + 1) % self.buffer.len;
     }
 
