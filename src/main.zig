@@ -7,7 +7,10 @@ pub fn main() !void {
     n.init(allo, 48000);
 
     var root = try n.seq(
-        n.par(n.sin(), n.sin()),
+        n.par(
+            n.sin(),
+            n.sin(),
+        ),
         n.add(),
     );
     defer root.deinit();
@@ -18,12 +21,10 @@ pub fn main() !void {
     defer allo.free(output);
 
     input[0] = 100; // freq osc 1
-    input[1] = 200; // freq osc 2
+    input[1] = 200;
 
     for (0..480) |index| {
         root.eval(@as(u64, index), input, output);
         std.debug.print("{any}\n", .{output[0]});
     }
 }
-
-const test_allocator = std.testing.allocator;
