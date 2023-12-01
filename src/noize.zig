@@ -12,9 +12,9 @@ pub fn init(allocator: std.mem.Allocator, samplerate: u64) void {
     srate = samplerate;
 }
 
-pub fn seq(prev: *const Block, next: *const Block) !Block {
+pub fn seq(prev: anyerror!Block, next: anyerror!Block) !Block {
     return Block{
-        ._seq = try Seq.init(prev, next),
+        ._seq = try Seq.init(try prev, try next),
     };
 }
 
@@ -44,7 +44,7 @@ const Seq = struct {
         allo.free(self.buffer);
     }
 
-    fn eval(self: Seq, now: u64, input: []f32, output: []f32) void {
+    fn eval(self: *Seq, now: u64, input: []f32, output: []f32) void {
         self.prev.eval(now, input, self.buffer);
         self.next.eval(now, self.buffer, output);
     }
@@ -58,9 +58,9 @@ const Seq = struct {
     }
 };
 
-pub fn par(first: *const Block, second: *const Block) Block {
+pub fn par(first: anyerror!Block, second: anyerror!Block) !Block {
     return Block{
-        ._par = Par.init(first, second),
+        ._par = try Par.init(try first, try second),
     };
 }
 
@@ -70,10 +70,10 @@ const Par = struct {
     inlen: usize,
     outlen: usize,
 
-    fn init(first: *const Block, second: *const Block) Par {
+    fn init(first: Block, second: Block) !Par {
         return Par{
-            .first = first,
-            .second = second,
+            .first = &first,
+            .second = &second,
             .inlen = first.in(),
             .outlen = first.out(),
         };
@@ -83,7 +83,7 @@ const Par = struct {
         _ = self;
     }
 
-    fn eval(self: Par, now: u64, input: []f32, output: []f32) void {
+    fn eval(self: *Par, now: u64, input: []f32, output: []f32) void {
         self.first.eval(now, input[0..self.inlen], output[0..self.inlen]);
         self.second.eval(now, input[self.inlen..], output[self.inlen..]);
     }
@@ -97,9 +97,9 @@ const Par = struct {
     }
 };
 
-pub fn merge(prev: *const Block, sibling: *const Block) Block {
+pub fn merge(prev: anyerror!Block, next: anyerror!Block) !Block {
     return Block{
-        ._merge = Merge.init(prev, sibling),
+        ._merge = Merge.init(try prev, try next),
     };
 }
 
@@ -109,7 +109,7 @@ const Merge = struct {
     prevbuf: []f32,
     nextbuf: []f32,
 
-    fn init(prev: *const Block, next: *const Block) !Merge {
+    fn init(prev: Block, next: Block) !Merge {
         const prevbuf = try allo.alloc(f32, prev.out());
         errdefer allo.free(prevbuf);
         const nextbuf = try allo.alloc(f32, next.in());
@@ -120,8 +120,8 @@ const Merge = struct {
         }
 
         return Merge{
-            .prev = prev,
-            .next = next,
+            .prev = &prev,
+            .next = &next,
             .prevbuf = prevbuf,
             .nextbuf = nextbuf,
         };
@@ -134,7 +134,7 @@ const Merge = struct {
         self.next.deinit();
     }
 
-    fn eval(self: Merge, now: u64, input: []f32, output: []f32) void {
+    fn eval(self: *Merge, now: u64, input: []f32, output: []f32) void {
         // eval prev
         self.prev.eval(now, input, self.prevbuf);
         // do the merging
@@ -158,9 +158,9 @@ const Merge = struct {
     }
 };
 
-pub fn split(prev: *const Block, sibling: *const Block) Block {
+pub fn split(prev: anyerror!Block, sibling: anyerror!Block) !Block {
     return Block{
-        ._split = Split.init(prev, sibling),
+        ._split = Split.init(try prev, try sibling),
     };
 }
 
@@ -169,7 +169,7 @@ const Split = struct {
     next: *const Block,
     buffer: []f32,
 
-    fn init(prev: *const Block, next: *const Block) !Split {
+    fn init(prev: Block, next: Block) !Split {
         const buffer = try allo.alloc(f32, next.in());
         errdefer allo.free(buffer);
 
@@ -178,8 +178,8 @@ const Split = struct {
         }
 
         return Split{
-            .prev = prev,
-            .next = next,
+            .prev = &prev,
+            .next = &next,
             .buffer = buffer,
         };
     }
@@ -190,7 +190,7 @@ const Split = struct {
         self.next.deinit();
     }
 
-    fn eval(self: Split, now: u64, input: []f32, output: []f32) void {
+    fn eval(self: *Split, now: u64, input: []f32, output: []f32) void {
         const prevlen = self.prev.out();
         const nextlen = self.next.in();
 
@@ -213,9 +213,9 @@ const Split = struct {
     }
 };
 
-pub fn rec(forward: *const Block, loop: *const Block) Block {
+pub fn rec(forward: anyerror!Block, loop: anyerror!Block) !Block {
     return Block{
-        ._rec = Rec.init(forward, loop),
+        ._rec = Rec.init(try forward, try loop),
     };
 }
 
@@ -227,7 +227,7 @@ const Rec = struct {
     forwardbuf: []f32, // forward input buffer
     loopbuf: []f32, // loop input buffer
 
-    fn init(forward: *const Block, loop: *const Block) !Rec {
+    fn init(forward: Block, loop: Block) !Rec {
         if (forward.out() != loop.in()) {
             return Error.LengthMismatch;
         }
@@ -245,8 +245,8 @@ const Rec = struct {
         @memset(forwardbuf, 0);
 
         return Rec{
-            .forward = forward,
-            .loop = loop,
+            .forward = &forward,
+            .loop = &loop,
             .forwardbuf = forwardbuf,
             .loopbuf = loopbuf,
         };
@@ -259,7 +259,7 @@ const Rec = struct {
         self.loop.deinit();
     }
 
-    fn eval(self: Rec, now: u64, input: []f32, output: []f32) void {
+    fn eval(self: *Rec, now: u64, input: []f32, output: []f32) void {
         // eval loopback based on previous iteration result
         self.loop.eval(now, self.loopbuf, self.forwardbuf[0..self.loopbuf.len]);
         // append current input
@@ -279,7 +279,7 @@ const Rec = struct {
     }
 };
 
-pub fn delay(length: usize) Block {
+pub fn delay(length: usize) !Block {
     return Block{
         ._delay = try Delay.init(length),
     };
@@ -319,7 +319,7 @@ const Delay = struct {
     }
 };
 
-pub fn add() Block {
+pub fn add() !Block {
     return Block{
         ._add = Add.init(),
     };
@@ -334,7 +334,7 @@ const Add = struct {
         _ = self;
     }
 
-    fn eval(self: Add, now: u64, input: []f32, output: []f32) void {
+    fn eval(self: *Add, now: u64, input: []f32, output: []f32) void {
         _ = now;
         _ = self;
         output[0] = input[0] + input[1];
@@ -351,7 +351,7 @@ const Add = struct {
     }
 };
 
-pub fn mul() Block {
+pub fn mul() !Block {
     return Block{
         ._mul = Mul.init(),
     };
@@ -366,7 +366,7 @@ const Mul = struct {
         _ = self;
     }
 
-    fn eval(self: Mul, now: u64, input: []f32, output: []f32) void {
+    fn eval(self: *Mul, now: u64, input: []f32, output: []f32) void {
         _ = now;
         _ = self;
         output[0] = input[0] * input[1];
@@ -383,7 +383,7 @@ const Mul = struct {
     }
 };
 
-pub fn neg() Block {
+pub fn neg() !Block {
     return Block{
         ._neg = Neg.init(),
     };
@@ -398,7 +398,7 @@ const Neg = struct {
         _ = self;
     }
 
-    fn eval(self: Neg, now: u64, input: []f32, output: []f32) void {
+    fn eval(self: *Neg, now: u64, input: []f32, output: []f32) void {
         _ = now;
         _ = self;
         output[0] = -input[0];
@@ -415,7 +415,7 @@ const Neg = struct {
     }
 };
 
-pub fn sin() Block {
+pub fn sin() !Block {
     return Block{
         ._sin = Sin.init(),
     };
@@ -430,7 +430,7 @@ const Sin = struct {
         _ = self;
     }
 
-    fn eval(self: Sin, now: u64, input: []f32, output: []f32) void {
+    fn eval(self: *Sin, now: u64, input: []f32, output: []f32) void {
         _ = self;
         const freq = input[0];
         const phase = @as(f32, @floatFromInt(now)) / @as(f32, @floatFromInt(srate)) * freq * std.math.tau;
@@ -456,6 +456,7 @@ const Block = union(enum) {
     }
 
     pub fn eval(self: Block, now: u64, input: []f32, output: []f32) void {
+        // FIXME pass a pointer to self
         switch (self) {
             inline else => |impl| impl.eval(now, input, output),
         }
@@ -479,11 +480,11 @@ const Block = union(enum) {
     _merge: Merge,
     _split: Split,
     _rec: Rec,
-    _delay: Delay,
 
+    // base blocks
+    _delay: Delay,
     _add: Add,
     _mul: Mul,
     _neg: Neg,
-
     _sin: Sin,
 };
