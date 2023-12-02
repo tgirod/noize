@@ -38,6 +38,7 @@ const Block = union(enum) {
     neg: *Neg,
     sin: *Sin,
     val: *Val,
+    id: *Id,
     wave: *Wave,
 
     // eval one timestep
@@ -552,6 +553,40 @@ const Val = struct {
     }
 
     fn deinit(self: *Val) void {
+        allo.destroy(self);
+    }
+};
+
+pub fn id() !Block {
+    return Block{
+        .id = try Id.init(),
+    };
+}
+
+const Id = struct {
+    fn init() !*Id {
+        var i = try allo.create(Id);
+        errdefer allo.destroy(i);
+        return i;
+    }
+
+    fn eval(self: *Id, now: u64, input: []f32, output: []f32) void {
+        _ = now;
+        _ = self;
+        output[0] = input[0];
+    }
+
+    fn in(self: *Id) usize {
+        _ = self;
+        return 1;
+    }
+
+    fn out(self: *Id) usize {
+        _ = self;
+        return 1;
+    }
+
+    fn deinit(self: *Id) void {
         allo.destroy(self);
     }
 };
