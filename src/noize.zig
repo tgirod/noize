@@ -500,8 +500,8 @@ const Sin = struct {
     fn eval(self: *Sin, now: u64, input: []f32, output: []f32) void {
         _ = self;
         const freq = input[0];
-        const phase = @as(f32, @floatFromInt(now)) / @as(f32, @floatFromInt(srate)) * freq * std.math.tau;
-        output[0] = @sin(phase);
+        const phase = @mod(freq * time(now), 1.0);
+        output[0] = @floatCast(@sin(phase * std.math.tau));
     }
 
     fn in(self: *Sin) usize {
@@ -613,7 +613,13 @@ const Wave = struct {
 };
 
 /// No interpolation, return the closest value from data, rounded toward zero
-fn interpolate0(data: []f32, phase: f32) f32 {
-    const index: usize = @intFromFloat(@trunc(phase * @as(f32, @floatFromInt(data.len))));
+fn interpolate0(data: []f32, phase: f64) f32 {
+    const len = @as(f64, @floatFromInt(data.len));
+    const index = @as(usize, @intFromFloat(@trunc(phase * len)));
     return data[index];
+}
+
+/// get time in seconds from time in samples
+inline fn time(now: u64) f64 {
+    return @as(f64, @floatFromInt(now)) / @as(f64, @floatFromInt(srate));
 }
