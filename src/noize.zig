@@ -325,6 +325,7 @@ const Split = struct {
     fn deinit(self: *Split) void {
         self.prev.deinit();
         self.next.deinit();
+        allo.free(self.buffer);
         allo.destroy(self);
     }
 };
