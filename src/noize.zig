@@ -330,6 +330,21 @@ const Split = struct {
     }
 };
 
+test "split" {
+    try init(std.testing.allocator, 48000, 0, 2);
+    defer deinit();
+    var root = try split(
+        val(23),
+        par(id(), id()),
+    );
+    defer root.deinit();
+    try expect(root.in() == 0);
+    try expect(root.out() == 2);
+    root.eval(0, in, out);
+    try expect(out[0] == 23);
+    try expect(out[1] == 23);
+}
+
 pub fn rec(forward: anyerror!Block, loop: anyerror!Block) !Block {
     return Block{
         .rec = Rec.init(try forward, try loop),
