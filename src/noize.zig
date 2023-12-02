@@ -2,14 +2,25 @@ const std = @import("std");
 
 var allo: std.mem.Allocator = undefined;
 var srate: u64 = undefined;
+pub var in: []f32 = undefined;
+pub var out: []f32 = undefined;
 
 const Error = error{
     LengthMismatch,
 };
 
-pub fn init(allocator: std.mem.Allocator, samplerate: u64) void {
+pub fn init(allocator: std.mem.Allocator, samplerate: u64, inputSize: usize, outputSize: usize) !void {
     allo = allocator;
     srate = samplerate;
+    in = try allo.alloc(f32, inputSize);
+    errdefer allo.free(in);
+    out = try allo.alloc(f32, outputSize);
+    errdefer allo.free(out);
+}
+
+pub fn deinit() void {
+    allo.free(in);
+    allo.free(out);
 }
 
 const Block = union(enum) {
