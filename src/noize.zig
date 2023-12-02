@@ -274,7 +274,7 @@ test "merge" {
 
 pub fn split(prev: anyerror!Block, sibling: anyerror!Block) !Block {
     return Block{
-        .split = Split.init(try prev, try sibling),
+        .split = try Split.init(try prev, try sibling),
     };
 }
 
