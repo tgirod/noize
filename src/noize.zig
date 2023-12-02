@@ -1,4 +1,5 @@
 const std = @import("std");
+const expect = std.testing.expect;
 
 var allo: std.mem.Allocator = undefined;
 var srate: u64 = undefined;
@@ -21,6 +22,13 @@ pub fn init(allocator: std.mem.Allocator, samplerate: u64, inputSize: usize, out
 pub fn deinit() void {
     allo.free(in);
     allo.free(out);
+}
+
+test "init / deinit" {
+    try init(std.testing.allocator, 48000, 1, 2);
+    defer deinit();
+    try expect(in.len == 1);
+    try expect(out.len == 2);
 }
 
 const Block = union(enum) {
@@ -118,6 +126,15 @@ const Seq = struct {
         return self.next.out();
     }
 };
+
+test "sequence of blocks" {
+    try init(std.testing.allocator, 48000, 0, 1);
+    defer deinit();
+    var root = try seq(val(23), id());
+    defer root.deinit();
+    root.eval(0, in, out);
+    try expect(out[0] == 23);
+}
 
 pub fn par(first: anyerror!Block, second: anyerror!Block) !Block {
     return Block{
@@ -590,6 +607,16 @@ const Id = struct {
         allo.destroy(self);
     }
 };
+
+test "identity function" {
+    try init(std.testing.allocator, 48000, 1, 1);
+    defer deinit();
+    var i = try id();
+    defer i.deinit();
+    in[0] = 42;
+    i.eval(0, in, out);
+    try expect(out[0] == in[0]);
+}
 
 /// single cycle waveform, passing data
 pub fn wave(data: []f32) !Block {
