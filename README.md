@@ -9,7 +9,7 @@ making noise with zig. stated goals:
 - [x] change code to pass around pointers
   - maybe blocks should be heap allocated
 - [x] constructors should take !Block parameters and bubble up errors
-- [ ] wavetable
+- [x] wavetable
   - initialize with a size and a generator function
   - generator function fills array from 0 to 1
   - interpolation function

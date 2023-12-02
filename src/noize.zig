@@ -38,6 +38,7 @@ const Block = union(enum) {
     neg: *Neg,
     sin: *Sin,
     val: *Val,
+    wave: *Wave,
 
     // eval one timestep
     pub fn eval(self: Block, now: u64, input: []f32, output: []f32) void {
@@ -554,3 +555,65 @@ const Val = struct {
         allo.destroy(self);
     }
 };
+
+/// single cycle waveform, passing data
+pub fn wave(data: []f32) !Block {
+    return Block{
+        .wave = try Wave.init(data),
+    };
+}
+
+const wavegen = *const fn (phase: f32) f32;
+
+/// single cycle waveform, generating data from a function
+pub fn wavefn(len: usize, gen: wavegen) !Block {
+    var w = allo.alloc(f32, len);
+    for (0..len) |i| {
+        const phase = @as(f32, @floatFromInt(i)) / @as(f32, @floatFromInt(len));
+        w[i] = gen(phase);
+    }
+
+    return Block{
+        .wave = try Wave.init(w),
+    };
+}
+
+/// single cycle waveform
+const Wave = struct {
+    data: []f32,
+
+    fn init(data: []f32) !*Wave {
+        var w = try allo.create(Wave);
+        errdefer allo.destroy(w);
+
+        w.data = data;
+        return w;
+    }
+
+    fn eval(self: *Wave, now: u64, input: []f32, output: []f32) void {
+        const freq = input[0];
+        const phase = @as(f32, @floatFromInt(now)) / @as(f32, @floatFromInt(srate)) * freq;
+        output[0] = interpolate0(self.data, phase);
+    }
+
+    fn in(self: *Wave) usize {
+        _ = self;
+        return 1; // freq
+    }
+
+    fn out(self: *Wave) usize {
+        _ = self;
+        return 1; // signal
+    }
+
+    fn deinit(self: *Wave) void {
+        allo.free(self.data);
+        allo.destroy(self);
+    }
+};
+
+/// No interpolation, return the closest value from data, rounded toward zero
+fn interpolate0(data: []f32, phase: f32) f32 {
+    const index: usize = @intFromFloat(@trunc(phase * @as(f32, @floatFromInt(data.len))));
+    return data[index];
+}
