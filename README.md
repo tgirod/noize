@@ -16,3 +16,8 @@ making noise with zig. stated goals:
 - [ ] add tests everywhere
   - how do I make sure the tests in noize.zig are run ?
 - [ ] turn the project back to a library rather than exe
+- [ ] more than one kind of data passing around blocks : it would make sense to pass around integers or booleans, maybe even optional types to represent event based transmissions
+- [ ] use comptime for the greater good
+  - typechecking inputs and outputs ?
+  - cool optimizations ?
+- [ ] #someday parallelism : noize builds a tree of blocks - it would probably be possible to evaluate children in parallel.
