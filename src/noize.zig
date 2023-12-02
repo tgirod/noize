@@ -203,43 +203,42 @@ pub fn merge(prev: anyerror!Block, next: anyerror!Block) !Block {
 const Merge = struct {
     prev: Block,
     next: Block,
-    prevbuf: []f32,
-    nextbuf: []f32,
+    bigbuf: []f32, // prev eval output
+    smallbuf: []f32, // next eval input
 
     fn init(prev: Block, next: Block) !*Merge {
-        if (prev.out() % next.in() != 0) {
+        const big = prev.out();
+        const small = next.in();
+        if (big % small != 0) {
             return Error.LengthMismatch;
         }
 
         var m = try allo.create(Merge);
         errdefer allo.destroy(m);
 
-        const prevbuf = try allo.alloc(f32, prev.out());
-        errdefer allo.free(prevbuf);
-
-        const nextbuf = try allo.alloc(f32, next.in());
-        errdefer allo.free(nextbuf);
-
         m.prev = prev;
         m.next = next;
-        m.prevbuf = prevbuf;
-        m.nextbuf = nextbuf;
+
+        m.bigbuf = try allo.alloc(f32, big);
+        errdefer allo.free(m.bigbuf);
+
+        m.smallbuf = try allo.alloc(f32, small);
+        errdefer allo.free(m.smallbuf);
+
         return m;
     }
 
     fn eval(self: *Merge, now: u64, input: []f32, output: []f32) void {
         // eval prev
-        self.prev.eval(now, input, self.prevbuf);
-        // do the merging
-        for (self.prevbuf, 0..) |p, i| {
-            if (i < self.nextbuf.len) {
-                self.nextbuf[i % self.nextbuf.len] = p;
-            } else {
-                self.nextbuf[i % self.nextbuf.len] += p;
-            }
+        self.prev.eval(now, input, self.bigbuf);
+
+        // merge bigbuf values into smallbuf
+        @memset(self.smallbuf, 0);
+        for (self.bigbuf, 0..) |p, i| {
+            self.smallbuf[i % self.smallbuf.len] += p;
         }
         // eval next
-        self.next.eval(now, self.nextbuf, output);
+        self.next.eval(now, self.smallbuf, output);
     }
 
     fn in(self: *Merge) usize {
@@ -270,7 +269,7 @@ test "merge" {
     try expect(root.in() == 0);
     try expect(root.out() == 1);
     root.eval(0, in, out);
-    // try expect(out[0] == 23 + 42);
+    try expect(out[0] == 23 + 42);
 }
 
 pub fn split(prev: anyerror!Block, sibling: anyerror!Block) !Block {
