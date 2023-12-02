@@ -110,7 +110,10 @@ const Seq = struct {
     }
 
     fn deinit(self: *Seq) void {
+        self.prev.deinit();
+        self.next.deinit();
         allo.free(self.buffer);
+        allo.destroy(self);
     }
 
     fn eval(self: *Seq, now: u64, input: []f32, output: []f32) void {
@@ -175,6 +178,7 @@ const Par = struct {
     fn deinit(self: *Par) void {
         self.first.deinit();
         self.second.deinit();
+        allo.destroy(self);
     }
 };
 
@@ -362,6 +366,7 @@ const Rec = struct {
         self.loop.deinit();
         allo.free(self.forwardbuf);
         allo.free(self.loopbuf);
+        allo.destroy(self);
     }
 };
 
@@ -405,6 +410,7 @@ const Delay = struct {
 
     fn deinit(self: *Delay) void {
         allo.free(self.buffer);
+        allo.destroy(self);
     }
 };
 
