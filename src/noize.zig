@@ -130,7 +130,7 @@ const Seq = struct {
     }
 };
 
-test "sequence of blocks" {
+test "sequence" {
     try init(std.testing.allocator, 48000, 0, 1);
     defer deinit();
     var root = try seq(val(23), id());
@@ -148,8 +148,6 @@ pub fn par(first: anyerror!Block, second: anyerror!Block) !Block {
 const Par = struct {
     first: Block,
     second: Block,
-    inlen: usize,
-    outlen: usize,
 
     fn init(first: Block, second: Block) !*Par {
         var p = try allo.create(Par);
@@ -157,14 +155,14 @@ const Par = struct {
 
         p.first = first;
         p.second = second;
-        p.inlen = first.in();
-        p.outlen = first.out();
         return p;
     }
 
     fn eval(self: *Par, now: u64, input: []f32, output: []f32) void {
-        self.first.eval(now, input[0..self.inlen], output[0..self.inlen]);
-        self.second.eval(now, input[self.inlen..], output[self.inlen..]);
+        const i = self.first.in();
+        const o = self.first.out();
+        self.first.eval(now, input[0..i], output[0..o]);
+        self.second.eval(now, input[i..], output[o..]);
     }
 
     fn in(self: *Par) usize {
@@ -181,6 +179,20 @@ const Par = struct {
         allo.destroy(self);
     }
 };
+
+test "parallel" {
+    try init(std.testing.allocator, 48000, 2, 2);
+    defer deinit();
+    var root = try par(id(), id());
+    defer root.deinit();
+    try expect(root.in() == 2);
+    try expect(root.out() == 2);
+    in[0] = 23;
+    in[1] = 42;
+    root.eval(0, in, out);
+    try expect(out[0] == 23);
+    try expect(out[1] == 42);
+}
 
 pub fn merge(prev: anyerror!Block, next: anyerror!Block) !Block {
     return Block{
@@ -241,11 +253,25 @@ const Merge = struct {
     fn deinit(self: *Merge) void {
         self.prev.deinit();
         self.next.deinit();
-        allo.free(self.prevbuf);
-        allo.free(self.nextbuf);
+        allo.free(self.bigbuf);
+        allo.free(self.smallbuf);
         allo.destroy(self);
     }
 };
+
+test "merge" {
+    try init(std.testing.allocator, 48000, 0, 1);
+    defer deinit();
+    var root = try merge(
+        par(val(23), val(42)),
+        id(),
+    );
+    defer root.deinit();
+    try expect(root.in() == 0);
+    try expect(root.out() == 1);
+    root.eval(0, in, out);
+    // try expect(out[0] == 23 + 42);
+}
 
 pub fn split(prev: anyerror!Block, sibling: anyerror!Block) !Block {
     return Block{
