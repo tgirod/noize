@@ -283,7 +283,7 @@ const Split = struct {
     next: Block,
     buffer: []f32,
 
-    fn init(prev: Block, next: Block) !Split {
+    fn init(prev: Block, next: Block) !*Split {
         if (next.in() % prev.out() != 0) {
             return Error.LengthMismatch;
         }
