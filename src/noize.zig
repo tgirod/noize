@@ -184,7 +184,7 @@ const Par = struct {
 
 pub fn merge(prev: anyerror!Block, next: anyerror!Block) !Block {
     return Block{
-        .merge = Merge.init(try prev, try next),
+        .merge = try Merge.init(try prev, try next),
     };
 }
 
