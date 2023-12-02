@@ -21,3 +21,4 @@ making noise with zig. stated goals:
   - typechecking inputs and outputs ?
   - cool optimizations ?
 - [ ] #someday parallelism : noize builds a tree of blocks - it would probably be possible to evaluate children in parallel.
+- [ ] #someday SIMD : audio servers usually ask for a sampleframe, not a sample individually. Turning those sampleframes into vectors and using SIMD instructions to process them all at once could be interesting.
