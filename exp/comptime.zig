@@ -43,8 +43,11 @@ fn Seq(comptime A: type, comptime B: type) type {
         const Self = @This();
 
         fn eval(self: *Self, input: Self.Input) Self.Output {
-            var out = self.prev.eval(input);
-            var cast: *B.Input = @ptrCast(@alignCast(&out));
+            // pass input to the first block, get intermediate result
+            var inter = self.prev.eval(input);
+            // cast intermediate to the second block's input type
+            var cast: *B.Input = @ptrCast(@alignCast(&inter));
+            // pass intermediate to the second block, return final result
             return self.next.eval(cast.*);
         }
     };
@@ -82,7 +85,7 @@ fn Par(comptime A: type, comptime B: type) type {
 
     for (output_a, 0..) |f, i| {
         output_fields[i] = .{
-            .name = f.name ++ ".a",
+            .name = f.name ++ "_a",
             .type = f.type,
             .default_value = f.default_value,
             .is_comptime = f.is_comptime,
@@ -91,7 +94,7 @@ fn Par(comptime A: type, comptime B: type) type {
     }
     for (output_b, output_a.len..) |f, i| {
         output_fields[i] = .{
-            .name = f.name ++ ".b",
+            .name = f.name ++ "_b",
             .type = f.type,
             .default_value = f.default_value,
             .is_comptime = f.is_comptime,
@@ -125,28 +128,37 @@ fn Par(comptime A: type, comptime B: type) type {
 
         fn eval(self: *Self, input: Self.Input) Self.Output {
             // split Self.Input into A.Input and B.Input
-
-            // var input_a: A.Input = undefined;
-            // var input_b: B.Input = undefined;
+            var split_a: A.Input = undefined;
+            var split_b: B.Input = undefined;
+            for (std.meta.fields(Self.Input), input_a ++ input_b, 0..) |field_i, field_ab, index| {
+                if (index < input_a.len) {
+                    @field(split_a, field_ab.name) = @field(input, field_i);
+                } else {
+                    @field(split_b, field_ab.name) = @field(input, field_i);
+                }
+            }
             // eval a and b
+            var merge_a = self.a.eval(split_a);
+            var merge_b = self.b.eval(split_b);
+            var output: Self.Output = undefined;
             // concat a.Output and b.Output into Self.Output
-
-            _ = input;
-            _ = self;
-            // TODO
+            for (std.meta.fields(Self.Output), merge_a ++ merge_b, 0..) |field_o, field_ab, index| {
+                if (index < merge_a.len) {
+                    @field(output, field_o) = @field(merge_a, field_ab.name);
+                } else {
+                    @field(output, field_o) = @field(merge_b, field_ab.name);
+                }
+            }
+            return output;
         }
     };
 }
 
 pub fn main() void {
     const Tree = Par(Id(f32), Id(u32));
-    var t = Tree{};
-    _ = t;
-    std.debug.print(
-        \\ input: {any}
-        \\ output: {any}
-    , .{ Tree.Input, Tree.Output });
-    // const in: Tree.Input = .{ .in = 23 };
+    const t = Tree{};
+    std.debug.print("{any}\n", .{t});
+    // const in: Tree.Input = .{ .in_a = 23, .in_b = 42 };
     // const out = t.eval(in);
     // std.debug.print("{}\n", .{out});
 }
