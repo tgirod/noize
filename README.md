@@ -22,3 +22,9 @@ making noise with zig. stated goals:
   - cool optimizations ?
 - [ ] #someday parallelism : noize builds a tree of blocks - it would probably be possible to evaluate children in parallel.
 - [ ] #someday SIMD : audio servers usually ask for a sampleframe, not a sample individually. Turning those sampleframes into vectors and using SIMD instructions to process them all at once could be interesting.
+
+# Another approach
+
+Maybe it is possible to have each block as a generic type, and build all the tree at compile time ? Would be nice.
+
+Can you find out at compile time that the type T has a field `.input` and a method `.eval` ?
