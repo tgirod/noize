@@ -411,3 +411,39 @@ test "rec" {
     n.eval();
     try expect(n.output[0].int == 6);
 }
+
+pub fn Delay(comptime k: Kind, comptime S: usize) type {
+    if (S == 0) {
+        @compileError("delay size == 0");
+    }
+
+    return struct {
+        pub const Input = [1]Kind{k};
+        pub const Output = [1]Kind{k};
+
+        buffer: [S]Data = [1]Data{Data.init(k)} ** S,
+        pos: usize = 0,
+
+        const Self = @This();
+        fn eval(self: *Self, input: []Data, output: []Data) void {
+            output[0] = self.buffer[self.pos];
+            self.buffer[self.pos] = input[0];
+            self.pos = (self.pos + 1) % S;
+        }
+    };
+}
+
+test "delay" {
+    var n = Noize(
+        1,
+        [_]Kind{.int},
+        1,
+        [_]Kind{.int},
+        Delay(.int, 1),
+    ){};
+    n.input[0].int = 1;
+    n.eval();
+    try expect(n.output[0].int == 0);
+    n.eval();
+    try expect(n.output[0].int == 1);
+}

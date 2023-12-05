@@ -6,11 +6,13 @@ making noise with zig. stated goals:
 
 # TODO
 
-- [ ] delay line (PORT FROM PREVIOUS VERSION)
+- [x] delay line
 - [ ] wavetable (PORT FROM PREVIOUS VERSION)
   - initialize with a size and a generator function
   - generator function fills array from 0 to 1
   - interpolation function
+- [ ] sinewave oscillator
+- [ ] sample rate (at runtime)
 - [x] add tests everywhere
   - how do I make sure the tests in noize.zig are run ?
 - [ ] turn the project back to a library rather than exe
