@@ -6,18 +6,16 @@ making noise with zig. stated goals:
 
 # TODO
 
-- [x] change code to pass around pointers
-  - maybe blocks should be heap allocated
-- [x] constructors should take !Block parameters and bubble up errors
-- [x] wavetable
+- [ ] delay line (PORT FROM PREVIOUS VERSION)
+- [ ] wavetable (PORT FROM PREVIOUS VERSION)
   - initialize with a size and a generator function
   - generator function fills array from 0 to 1
   - interpolation function
-- [ ] add tests everywhere
+- [x] add tests everywhere
   - how do I make sure the tests in noize.zig are run ?
 - [ ] turn the project back to a library rather than exe
-- [ ] more than one kind of data passing around blocks : it would make sense to pass around integers or booleans, maybe even optional types to represent event based transmissions
-- [ ] use comptime for the greater good
+- [x] more than one kind of data passing around blocks : it would make sense to pass around integers or booleans, maybe even optional types to represent event based transmissions
+- [x] use comptime for the greater good
   - typechecking inputs and outputs ?
   - cool optimizations ?
 - [ ] #someday parallelism : noize builds a tree of blocks - it would probably be possible to evaluate children in parallel.
