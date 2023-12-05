@@ -7,6 +7,8 @@ making noise with zig. stated goals:
 # TODO
 
 - [x] delay line
+- [ ] delay line with parametric length
+- [ ] buffer to read values
 - [ ] wavetable (PORT FROM PREVIOUS VERSION)
   - initialize with a size and a generator function
   - generator function fills array from 0 to 1
