@@ -414,7 +414,7 @@ test "rec" {
 
 pub fn Delay(comptime k: Kind, comptime S: usize) type {
     if (S == 0) {
-        @compileError("delay size == 0");
+        @compileError("delay length == 0");
     }
 
     return struct {
