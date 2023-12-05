@@ -8,16 +8,19 @@ const Type = std.builtin.Type;
 pub const Kind = enum {
     float,
     int,
+    uint,
 };
 
 pub const Data = union(Kind) {
     float: f64,
     int: i64,
+    uint: u64,
 
     inline fn init(k: Kind) Data {
         switch (k) {
             .float => return Data{ .float = 0 },
             .int => return Data{ .int = 0 },
+            .uint => return Data{ .uint = 0 },
         }
     }
 
@@ -25,6 +28,7 @@ pub const Data = union(Kind) {
         switch (self.*) {
             Kind.float => self.float = 0,
             Kind.int => self.int = 0,
+            Kind.uint => self.uint = 0,
         }
     }
 
@@ -32,6 +36,7 @@ pub const Data = union(Kind) {
         switch (self) {
             Kind.float => return Data{ .float = self.float + other.float },
             Kind.int => return Data{ .int = self.int + other.int },
+            Kind.uint => return Data{ .uint = self.uint + other.uint },
         }
     }
 
@@ -39,6 +44,7 @@ pub const Data = union(Kind) {
         switch (self) {
             Kind.float => return Data{ .float = self.float * other.float },
             Kind.int => return Data{ .int = self.int * other.int },
+            Kind.uint => return Data{ .uint = self.uint * other.uint },
         }
     }
 };
