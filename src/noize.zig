@@ -14,6 +14,13 @@ pub const Data = union(Kind) {
     float: f64,
     int: i64,
 
+    inline fn init(k: Kind) Data {
+        switch (k) {
+            .float => return Data{ .float = 0 },
+            .int => return Data{ .int = 0 },
+        }
+    }
+
     inline fn zero(self: *Data) void {
         switch (self.*) {
             Kind.float => self.float = 0,
@@ -39,10 +46,7 @@ pub const Data = union(Kind) {
 fn dataInit(comptime S: usize, kinds: [S]Kind) [S]Data {
     var arr: [S]Data = undefined;
     for (kinds, 0..) |k, i| {
-        switch (k) {
-            .float => arr[i] = .{ .float = 0 },
-            .int => arr[i] = .{ .int = 0 },
-        }
+        arr[i] = Data.init(k);
     }
     return arr;
 }
