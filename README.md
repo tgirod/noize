@@ -23,8 +23,12 @@ making noise with zig. stated goals:
 - [ ] #someday parallelism : noize builds a tree of blocks - it would probably be possible to evaluate children in parallel.
 - [ ] #someday SIMD : audio servers usually ask for a sampleframe, not a sample individually. Turning those sampleframes into vectors and using SIMD instructions to process them all at once could be interesting.
 
-# Another approach
+# heavy comptime approach
 
-Maybe it is possible to have each block as a generic type, and build all the tree at compile time ? Would be nice.
+In exp/comptime.zig, I experimented with comptime to write the combinators. It is quite easy to pass two block types to Seq, and build custom input and output types based on those two blocks.
 
-Can you find out at compile time that the type T has a field `.input` and a method `.eval` ?
+But it gets complicated when you start passing data around, because you need a lot of reflection to manipulate those generated structs.
+
+# the middle ground
+
+comptime is definitely the way to go to combine blocks to form the block diagram. But input and outputs are better of as slices, because in the end that is what we want to manipulate.
