@@ -4,21 +4,17 @@ const builtin = std.builtin;
 const expect = std.testing.expect;
 const Type = std.builtin.Type;
 
-/// kind of data that can be transmitted between blocks
-pub const Kind = enum {
-    float,
-    int,
-    uint,
-};
-
 /// any data exchanged between blocks is of type Data
-pub const Data = union(Kind) {
+pub const Data = union(enum) {
+    const Self = @This();
+    pub const Tag = std.meta.Tag(Self);
+
     float: f64,
     int: i64,
     uint: u64,
 
     /// creates Data of a given kind with 0 value
-    inline fn init(k: Kind) Data {
+    inline fn init(k: Data.Tag) Data {
         switch (k) {
             .float => return Data{ .float = 0 },
             .int => return Data{ .int = 0 },
@@ -27,7 +23,7 @@ pub const Data = union(Kind) {
     }
 
     /// creates an array of Data of a given size, with given kinds
-    fn arrayInit(comptime S: usize, kinds: [S]Kind) [S]Data {
+    fn arrayInit(comptime S: usize, kinds: [S]Data.Tag) [S]Data {
         var arr: [S]Data = undefined;
         for (kinds, 0..) |k, i| {
             arr[i] = Data.init(k);
@@ -38,9 +34,9 @@ pub const Data = union(Kind) {
     /// resets to zero value
     inline fn zero(self: *Data) void {
         switch (self.*) {
-            Kind.float => self.float = 0,
-            Kind.int => self.int = 0,
-            Kind.uint => self.uint = 0,
+            Data.Tag.float => self.float = 0,
+            Data.Tag.int => self.int = 0,
+            Data.Tag.uint => self.uint = 0,
         }
     }
 
@@ -52,18 +48,18 @@ pub const Data = union(Kind) {
     /// adds two Data of the same type
     inline fn add(self: Data, other: Data) Data {
         switch (self) {
-            Kind.float => return Data{ .float = self.float + other.float },
-            Kind.int => return Data{ .int = self.int + other.int },
-            Kind.uint => return Data{ .uint = self.uint + other.uint },
+            Data.Tag.float => return Data{ .float = self.float + other.float },
+            Data.Tag.int => return Data{ .int = self.int + other.int },
+            Data.Tag.uint => return Data{ .uint = self.uint + other.uint },
         }
     }
 
     /// multiplies two Data of the same type
     inline fn mul(self: Data, other: Data) Data {
         switch (self) {
-            Kind.float => return Data{ .float = self.float * other.float },
-            Kind.int => return Data{ .int = self.int * other.int },
-            Kind.uint => return Data{ .uint = self.uint * other.uint },
+            Data.Tag.float => return Data{ .float = self.float * other.float },
+            Data.Tag.int => return Data{ .int = self.int * other.int },
+            Data.Tag.uint => return Data{ .uint = self.uint * other.uint },
         }
     }
 };
@@ -82,7 +78,7 @@ test "Data.arrayZero" {
 }
 
 test "data.arrayInit" {
-    var d = Data.arrayInit(2, [_]Kind{ .float, .int });
+    var d = Data.arrayInit(2, [_]Data.Tag{ .float, .int });
     try std.testing.expectEqualSlices(
         Data,
         &[2]Data{ .{ .float = 0 }, .{ .int = 0 } },
@@ -107,12 +103,12 @@ test "Data.mul" {
 /// the main struct, that should connect to the outside
 pub fn Noize(
     comptime I: usize, // number of inputs
-    comptime KI: [I]Kind, // kind of inputs
+    comptime KI: [I]Data.Tag, // kind of inputs
     comptime O: usize, // number of outputs
-    comptime KO: [O]Kind, // kind of outputs
+    comptime KO: [O]Data.Tag, // kind of outputs
     comptime B: type, // root evaluation block
 ) type {
-    if (!std.mem.eql(Kind, &KI, &B.Input) or !std.mem.eql(Kind, &KO, &B.Output)) {
+    if (!std.mem.eql(Data.Tag, &KI, &B.Input) or !std.mem.eql(Data.Tag, &KO, &B.Output)) {
         @compileError("mismatch");
     }
 
@@ -132,10 +128,10 @@ pub fn Noize(
 }
 
 /// identity function, mostly for testing purpose
-pub fn Id(comptime k: Kind) type {
+pub fn Id(comptime k: Data.Tag) type {
     return struct {
-        pub const Input = [1]Kind{k};
-        pub const Output = [1]Kind{k};
+        pub const Input = [1]Data.Tag{k};
+        pub const Output = [1]Data.Tag{k};
 
         const Self = @This();
         fn eval(self: *Self, input: []Data, output: []Data) void {
@@ -146,10 +142,10 @@ pub fn Id(comptime k: Kind) type {
 }
 
 /// add two entries
-pub fn Add(comptime k: Kind) type {
+pub fn Add(comptime k: Data.Tag) type {
     return struct {
-        pub const Input = [2]Kind{ k, k };
-        pub const Output = [1]Kind{k};
+        pub const Input = [2]Data.Tag{ k, k };
+        pub const Output = [1]Data.Tag{k};
 
         const Self = @This();
         fn eval(self: *Self, input: []Data, output: []Data) void {
@@ -162,9 +158,9 @@ pub fn Add(comptime k: Kind) type {
 test "add" {
     var n = Noize(
         2,
-        [_]Kind{ .int, .int },
+        [_]Data.Tag{ .int, .int },
         1,
-        [_]Kind{.int},
+        [_]Data.Tag{.int},
         Add(.int),
     ){};
 
@@ -180,7 +176,7 @@ test "add" {
 /// connect two blocks as a sequence
 pub fn Seq(comptime A: type, comptime B: type) type {
     // check for mismatch between A.Output and B.Input
-    if (!std.mem.eql(Kind, &A.Output, &B.Input)) {
+    if (!std.mem.eql(Data.Tag, &A.Output, &B.Input)) {
         @compileError("mismatch");
     }
 
@@ -206,9 +202,9 @@ pub fn Seq(comptime A: type, comptime B: type) type {
 test "seq" {
     var n = Noize(
         1,
-        [_]Kind{.float},
+        [_]Data.Tag{.float},
         1,
-        [_]Kind{.float},
+        [_]Data.Tag{.float},
         Seq(Id(.float), Id(.float)),
     ){};
     n.input[0].float = 23;
@@ -238,9 +234,9 @@ pub fn Par(comptime A: type, comptime B: type) type {
 test "par" {
     var n = Noize(
         2,
-        [_]Kind{ .int, .float },
+        [_]Data.Tag{ .int, .float },
         2,
-        [_]Kind{ .int, .float },
+        [_]Data.Tag{ .int, .float },
         Par(Id(.int), Id(.float)),
     ){};
 
@@ -260,7 +256,7 @@ pub fn Merge(comptime A: type, comptime B: type) type {
     }
     // checking if types match
     const repeat = B.Input ** @divExact(big, small);
-    if (!std.mem.eql(Kind, &repeat, &A.Output)) {
+    if (!std.mem.eql(Data.Tag, &repeat, &A.Output)) {
         @compileError("type mismatch");
     }
 
@@ -291,9 +287,9 @@ pub fn Merge(comptime A: type, comptime B: type) type {
 test "merge" {
     var n = Noize(
         4,
-        [_]Kind{.float} ** 4,
+        [_]Data.Tag{.float} ** 4,
         2,
-        [_]Kind{.float} ** 2,
+        [_]Data.Tag{.float} ** 2,
         Merge(
             Par(Par(Id(.float), Id(.float)), Par(Id(.float), Id(.float))),
             Par(Id(.float), Id(.float)),
@@ -320,7 +316,7 @@ pub fn Split(comptime A: type, comptime B: type) type {
     }
     // checking if types match
     const repeat = A.Output ** @divExact(big, small);
-    if (!std.mem.eql(Kind, &repeat, &B.Input)) {
+    if (!std.mem.eql(Data.Tag, &repeat, &B.Input)) {
         @compileError("type mismatch");
     }
 
@@ -348,9 +344,9 @@ pub fn Split(comptime A: type, comptime B: type) type {
 test "split" {
     var n = Noize(
         2,
-        [_]Kind{.float} ** 2,
+        [_]Data.Tag{.float} ** 2,
         4,
-        [_]Kind{.float} ** 4,
+        [_]Data.Tag{.float} ** 4,
         Split(
             Par(Id(.float), Id(.float)),
             Par(Par(Id(.float), Id(.float)), Par(Id(.float), Id(.float))),
@@ -373,7 +369,7 @@ pub fn Rec(comptime A: type, comptime B: type) type {
         @compileError("length mismatch : A --> B");
     }
 
-    if (!std.mem.eql(Kind, &B.Input, &A.Output)) {
+    if (!std.mem.eql(Data.Tag, &B.Input, &A.Output)) {
         @compileError("type mismatch : A --> B");
     }
 
@@ -381,12 +377,12 @@ pub fn Rec(comptime A: type, comptime B: type) type {
         @compileError("length mismatch : B --> A");
     }
 
-    if (!std.mem.eql(Kind, A.Input[0..B.Output.len], &B.Output)) {
+    if (!std.mem.eql(Data.Tag, A.Input[0..B.Output.len], &B.Output)) {
         @compileError("type mismatch : B --> A");
     }
 
     const split = B.Output.len;
-    comptime var input_kind: [A.Input.len - split]Kind = undefined;
+    comptime var input_kind: [A.Input.len - split]Data.Tag = undefined;
     @memcpy(&input_kind, A.Input[split..]);
 
     return struct {
@@ -416,9 +412,9 @@ pub fn Rec(comptime A: type, comptime B: type) type {
 test "rec" {
     var n = Noize(
         1,
-        [_]Kind{.int},
+        [_]Data.Tag{.int},
         1,
-        [_]Kind{.int},
+        [_]Data.Tag{.int},
         Rec(
             Add(.int),
             Id(.int),
@@ -461,9 +457,9 @@ test "dup" {
     const s = 4;
     var n = Noize(
         s,
-        [_]Kind{.float} ** s,
+        [_]Data.Tag{.float} ** s,
         s,
-        [_]Kind{.float} ** s,
+        [_]Data.Tag{.float} ** s,
         Dup(s, Id(.float)),
     ){};
     try expect(@TypeOf(n).Input.len == s);
@@ -473,14 +469,14 @@ test "dup" {
     try std.testing.expectEqualSlices(Data, &n.input, &n.output);
 }
 
-pub fn Delay(comptime k: Kind, comptime S: usize) type {
+pub fn Delay(comptime k: Data.Tag, comptime S: usize) type {
     if (S == 0) {
         @compileError("delay length == 0");
     }
 
     return struct {
-        pub const Input = [1]Kind{k};
-        pub const Output = [1]Kind{k};
+        pub const Input = [1]Data.Tag{k};
+        pub const Output = [1]Data.Tag{k};
 
         buffer: [S]Data = [1]Data{Data.init(k)} ** S,
         pos: usize = 0,
@@ -497,9 +493,9 @@ pub fn Delay(comptime k: Kind, comptime S: usize) type {
 test "delay" {
     var n = Noize(
         1,
-        [_]Kind{.int},
+        [_]Data.Tag{.int},
         1,
-        [_]Kind{.int},
+        [_]Data.Tag{.int},
         Delay(.int, 1),
     ){};
     n.input[0].int = 1;
