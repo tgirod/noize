@@ -173,6 +173,38 @@ test "add" {
     try std.testing.expectEqualSlices(Data, &expected, &n.output);
 }
 
+/// multiply two entries
+pub fn Mul(comptime t: Data.Tag) type {
+    return struct {
+        pub const Input = [2]Data.Tag{ t, t };
+        pub const Output = [1]Data.Tag{t};
+
+        const Self = @This();
+        fn eval(self: *Self, input: []Data, output: []Data) void {
+            _ = self;
+            output[0] = input[0].mul(input[1]);
+        }
+    };
+}
+
+test "mul" {
+    var n = Noize(
+        2,
+        [_]Data.Tag{ .int, .int },
+        1,
+        [_]Data.Tag{.int},
+        Mul(.int),
+    ){};
+
+    n.input[0].int = 23;
+    n.input[1].int = 42;
+    n.eval();
+    var expected = [_]Data{
+        .{ .int = 23 * 42 },
+    };
+    try std.testing.expectEqualSlices(Data, &expected, &n.output);
+}
+
 /// connect two blocks as a sequence
 pub fn Seq(comptime A: type, comptime B: type) type {
     // check for mismatch between A.Output and B.Input
