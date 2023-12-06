@@ -13,20 +13,20 @@ pub const Data = union(enum) {
     int: i64,
     uint: u64,
 
-    /// creates Data of a given kind with 0 value
-    inline fn init(k: Data.Tag) Data {
-        switch (k) {
+    /// creates Data of a given tag with 0 value
+    inline fn init(t: Data.Tag) Data {
+        switch (t) {
             .float => return Data{ .float = 0 },
             .int => return Data{ .int = 0 },
             .uint => return Data{ .uint = 0 },
         }
     }
 
-    /// creates an array of Data of a given size, with given kinds
-    fn arrayInit(comptime S: usize, kinds: [S]Data.Tag) [S]Data {
+    /// creates an array of Data of a given size, with given tags
+    fn arrayInit(comptime S: usize, tags: [S]Data.Tag) [S]Data {
         var arr: [S]Data = undefined;
-        for (kinds, 0..) |k, i| {
-            arr[i] = Data.init(k);
+        for (tags, 0..) |t, i| {
+            arr[i] = Data.init(t);
         }
         return arr;
     }
@@ -103,22 +103,22 @@ test "Data.mul" {
 /// the main struct, that should connect to the outside
 pub fn Noize(
     comptime I: usize, // number of inputs
-    comptime KI: [I]Data.Tag, // kind of inputs
+    comptime TI: [I]Data.Tag, // tag of inputs
     comptime O: usize, // number of outputs
-    comptime KO: [O]Data.Tag, // kind of outputs
+    comptime TO: [O]Data.Tag, // tag of outputs
     comptime B: type, // root evaluation block
 ) type {
-    if (!std.mem.eql(Data.Tag, &KI, &B.Input) or !std.mem.eql(Data.Tag, &KO, &B.Output)) {
+    if (!std.mem.eql(Data.Tag, &TI, &B.Input) or !std.mem.eql(Data.Tag, &TO, &B.Output)) {
         @compileError("mismatch");
     }
 
     return struct {
-        pub const Input = KI;
-        pub const Output = KO;
+        pub const Input = TI;
+        pub const Output = TO;
 
         block: B = B{},
-        input: [I]Data = Data.arrayInit(I, KI),
-        output: [O]Data = Data.arrayInit(O, KO),
+        input: [I]Data = Data.arrayInit(I, TI),
+        output: [O]Data = Data.arrayInit(O, TO),
 
         const Self = @This();
         pub fn eval(self: *Self) void {
@@ -128,10 +128,10 @@ pub fn Noize(
 }
 
 /// identity function, mostly for testing purpose
-pub fn Id(comptime k: Data.Tag) type {
+pub fn Id(comptime t: Data.Tag) type {
     return struct {
-        pub const Input = [1]Data.Tag{k};
-        pub const Output = [1]Data.Tag{k};
+        pub const Input = [1]Data.Tag{t};
+        pub const Output = [1]Data.Tag{t};
 
         const Self = @This();
         fn eval(self: *Self, input: []Data, output: []Data) void {
@@ -142,10 +142,10 @@ pub fn Id(comptime k: Data.Tag) type {
 }
 
 /// add two entries
-pub fn Add(comptime k: Data.Tag) type {
+pub fn Add(comptime t: Data.Tag) type {
     return struct {
-        pub const Input = [2]Data.Tag{ k, k };
-        pub const Output = [1]Data.Tag{k};
+        pub const Input = [2]Data.Tag{ t, t };
+        pub const Output = [1]Data.Tag{t};
 
         const Self = @This();
         fn eval(self: *Self, input: []Data, output: []Data) void {
@@ -382,8 +382,8 @@ pub fn Rec(comptime A: type, comptime B: type) type {
     }
 
     const split = B.Output.len;
-    comptime var input_kind: [A.Input.len - split]Data.Tag = undefined;
-    @memcpy(&input_kind, A.Input[split..]);
+    comptime var input_tag: [A.Input.len - split]Data.Tag = undefined;
+    @memcpy(&input_tag, A.Input[split..]);
 
     return struct {
         a: A = A{},
@@ -391,7 +391,7 @@ pub fn Rec(comptime A: type, comptime B: type) type {
         buf_a: [A.Input.len]Data = Data.arrayInit(A.Input.len, A.Input),
         buf_b: [B.Input.len]Data = Data.arrayInit(B.Input.len, B.Input),
 
-        pub const Input = input_kind;
+        pub const Input = input_tag;
         pub const Output = A.Output;
 
         const Self = @This();
@@ -469,16 +469,16 @@ test "dup" {
     try std.testing.expectEqualSlices(Data, &n.input, &n.output);
 }
 
-pub fn Delay(comptime k: Data.Tag, comptime S: usize) type {
+pub fn Delay(comptime t: Data.Tag, comptime S: usize) type {
     if (S == 0) {
         @compileError("delay length == 0");
     }
 
     return struct {
-        pub const Input = [1]Data.Tag{k};
-        pub const Output = [1]Data.Tag{k};
+        pub const Input = [1]Data.Tag{t};
+        pub const Output = [1]Data.Tag{t};
 
-        buffer: [S]Data = [1]Data{Data.init(k)} ** S,
+        buffer: [S]Data = [1]Data{Data.init(t)} ** S,
         pos: usize = 0,
 
         const Self = @This();
