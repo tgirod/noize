@@ -418,6 +418,45 @@ test "rec" {
     try expect(n.output[0].int == 6);
 }
 
+/// takes a size S and a block type B, and duplicate B S times in parallel
+pub fn Dup(comptime S: usize, comptime B: type) type {
+    return struct {
+        blocks: [S]B = [_]B{B{}} ** S,
+
+        pub const Input = B.Input ** S;
+        pub const Output = B.Output ** S;
+
+        const Self = @This();
+
+        fn eval(self: *Self, input: []Data, output: []Data) void {
+            const in_step = B.Input.len;
+            const out_step = B.Output.len;
+            for (0..S) |i| {
+                self.blocks[i].eval(
+                    input[i * in_step .. (i + 1) * in_step],
+                    output[i * out_step .. (i + 1) * out_step],
+                );
+            }
+        }
+    };
+}
+
+test "dup" {
+    const s = 4;
+    var n = Noize(
+        s,
+        [_]Kind{.float} ** s,
+        s,
+        [_]Kind{.float} ** s,
+        Dup(s, Id(.float)),
+    ){};
+    try expect(@TypeOf(n).Input.len == s);
+    try expect(@TypeOf(n).Output.len == s);
+    n.input = [_]Data{.{ .float = 1 }} ** s;
+    n.eval();
+    try std.testing.expectEqualSlices(Data, &n.input, &n.output);
+}
+
 pub fn Delay(comptime k: Kind, comptime S: usize) type {
     if (S == 0) {
         @compileError("delay length == 0");
