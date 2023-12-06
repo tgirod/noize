@@ -24,12 +24,24 @@ pub const Data = union(Kind) {
         }
     }
 
+    fn arrayInit(comptime S: usize, kinds: [S]Kind) [S]Data {
+        var arr: [S]Data = undefined;
+        for (kinds, 0..) |k, i| {
+            arr[i] = Data.init(k);
+        }
+        return arr;
+    }
+
     inline fn zero(self: *Data) void {
         switch (self.*) {
             Kind.float => self.float = 0,
             Kind.int => self.int = 0,
             Kind.uint => self.uint = 0,
         }
+    }
+
+    inline fn arrayZero(data: []Data) void {
+        for (data) |*d| d.zero();
     }
 
     inline fn add(self: Data, other: Data) Data {
@@ -49,19 +61,7 @@ pub const Data = union(Kind) {
     }
 };
 
-fn dataInit(comptime S: usize, kinds: [S]Kind) [S]Data {
-    var arr: [S]Data = undefined;
-    for (kinds, 0..) |k, i| {
-        arr[i] = Data.init(k);
-    }
-    return arr;
-}
-
-fn reset(data: []Data) void {
-    for (data) |*d| d.zero();
-}
-
-test "reset" {
+test "Data.arrayZero" {
     var data = [2]Data{
         .{ .float = 23 },
         .{ .int = 42 },
@@ -70,18 +70,27 @@ test "reset" {
         .{ .float = 0 },
         .{ .int = 0 },
     };
-    reset(&data);
+    Data.arrayZero(&data);
     try std.testing.expectEqualSlices(Data, &expected, &data);
 }
 
-test "data add" {
+test "data.arrayInit" {
+    var d = Data.arrayInit(2, [_]Kind{ .float, .int });
+    try std.testing.expectEqualSlices(
+        Data,
+        &[2]Data{ .{ .float = 0 }, .{ .int = 0 } },
+        &d,
+    );
+}
+
+test "Data.add" {
     var a = Data{ .float = 23 };
     var b = Data{ .float = 42 };
     a = a.add(b);
     try expect(a.float == 23 + 42);
 }
 
-test "data mul" {
+test "Data.mul" {
     var a = Data{ .float = 23 };
     var b = Data{ .float = 42 };
     a = a.mul(b);
@@ -105,8 +114,8 @@ pub fn Noize(
         pub const Output = KO;
 
         block: B = B{},
-        input: [I]Data = dataInit(I, KI),
-        output: [O]Data = dataInit(O, KO),
+        input: [I]Data = Data.arrayInit(I, KI),
+        output: [O]Data = Data.arrayInit(O, KO),
 
         const Self = @This();
         pub fn eval(self: *Self) void {
@@ -173,7 +182,7 @@ pub fn Seq(comptime A: type, comptime B: type) type {
     return struct {
         prev: A = A{},
         next: B = B{},
-        buffer: [buflen]Data = dataInit(A.Output.len, A.Output),
+        buffer: [buflen]Data = Data.arrayInit(A.Output.len, A.Output),
 
         pub const Input = A.Input;
         pub const Output = B.Output;
@@ -251,8 +260,8 @@ pub fn Merge(comptime A: type, comptime B: type) type {
     return struct {
         a: A = A{},
         b: B = B{},
-        bigbuf: [big]Data = dataInit(big, A.Output),
-        smallbuf: [small]Data = dataInit(small, B.Input),
+        bigbuf: [big]Data = Data.arrayInit(big, A.Output),
+        smallbuf: [small]Data = Data.arrayInit(small, B.Input),
 
         pub const Input = A.Input;
         pub const Output = B.Output;
@@ -262,7 +271,7 @@ pub fn Merge(comptime A: type, comptime B: type) type {
             // eval first block
             self.a.eval(input[0..Input.len], &self.bigbuf);
             // compute merge
-            reset(&self.smallbuf);
+            Data.arrayZero(&self.smallbuf);
             for (self.bigbuf, 0..) |v, i| {
                 self.smallbuf[i % small] = self.smallbuf[i % small].add(v);
             }
@@ -311,8 +320,8 @@ pub fn Split(comptime A: type, comptime B: type) type {
     return struct {
         a: A = A{},
         b: B = B{},
-        bigbuf: [big]Data = dataInit(big, B.Input),
-        smallbuf: [small]Data = dataInit(small, A.Output),
+        bigbuf: [big]Data = Data.arrayInit(big, B.Input),
+        smallbuf: [small]Data = Data.arrayInit(small, A.Output),
 
         pub const Input = A.Input;
         pub const Output = B.Output;
@@ -376,8 +385,8 @@ pub fn Rec(comptime A: type, comptime B: type) type {
     return struct {
         a: A = A{},
         b: B = B{},
-        buf_a: [A.Input.len]Data = dataInit(A.Input.len, A.Input),
-        buf_b: [B.Input.len]Data = dataInit(B.Input.len, B.Input),
+        buf_a: [A.Input.len]Data = Data.arrayInit(A.Input.len, A.Input),
+        buf_b: [B.Input.len]Data = Data.arrayInit(B.Input.len, B.Input),
 
         pub const Input = input_kind;
         pub const Output = A.Output;
