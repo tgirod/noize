@@ -11,11 +11,13 @@ pub const Kind = enum {
     uint,
 };
 
+/// any data exchanged between blocks is of type Data
 pub const Data = union(Kind) {
     float: f64,
     int: i64,
     uint: u64,
 
+    /// creates Data of a given kind with 0 value
     inline fn init(k: Kind) Data {
         switch (k) {
             .float => return Data{ .float = 0 },
@@ -24,6 +26,7 @@ pub const Data = union(Kind) {
         }
     }
 
+    /// creates an array of Data of a given size, with given kinds
     fn arrayInit(comptime S: usize, kinds: [S]Kind) [S]Data {
         var arr: [S]Data = undefined;
         for (kinds, 0..) |k, i| {
@@ -32,6 +35,7 @@ pub const Data = union(Kind) {
         return arr;
     }
 
+    /// resets to zero value
     inline fn zero(self: *Data) void {
         switch (self.*) {
             Kind.float => self.float = 0,
@@ -40,10 +44,12 @@ pub const Data = union(Kind) {
         }
     }
 
+    /// resets an array to zero
     inline fn arrayZero(data: []Data) void {
         for (data) |*d| d.zero();
     }
 
+    /// adds two Data of the same type
     inline fn add(self: Data, other: Data) Data {
         switch (self) {
             Kind.float => return Data{ .float = self.float + other.float },
@@ -52,6 +58,7 @@ pub const Data = union(Kind) {
         }
     }
 
+    /// multiplies two Data of the same type
     inline fn mul(self: Data, other: Data) Data {
         switch (self) {
             Kind.float => return Data{ .float = self.float * other.float },
