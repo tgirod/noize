@@ -554,7 +554,7 @@ pub fn Delay(comptime t: Data.Tag, comptime S: usize) type {
 
         const Self = @This();
         fn eval(self: *Self, input: []Data, output: []Data) void {
-            const length = input[1].size;
+            const length = @min(input[1].size, S);
             if (length == 0) {
                 output[0] = input[0];
             } else {
