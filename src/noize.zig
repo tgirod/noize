@@ -555,10 +555,14 @@ pub fn Delay(comptime t: Data.Tag, comptime S: usize) type {
         const Self = @This();
         fn eval(self: *Self, input: []Data, output: []Data) void {
             const length = input[1].size;
-            const read = @mod(self.write + length, S);
-            output[0] = self.buffer[read];
-            self.buffer[self.write] = input[0];
-            self.write = @mod(self.write + 1, length);
+            if (length == 0) {
+                output[0] = input[0];
+            } else {
+                const read = @mod(self.write + length, S);
+                output[0] = self.buffer[read];
+                self.buffer[self.write] = input[0];
+                self.write = @mod(self.write + 1, length);
+            }
         }
     };
 }
