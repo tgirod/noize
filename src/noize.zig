@@ -501,7 +501,8 @@ test "dup" {
     try std.testing.expectEqualSlices(Data, &n.input, &n.output);
 }
 
-pub fn Delay(comptime t: Data.Tag, comptime S: usize) type {
+/// delay line with a fixed size
+pub fn Mem(comptime t: Data.Tag, comptime S: usize) type {
     if (S == 0) {
         @compileError("delay length == 0");
     }
@@ -522,17 +523,68 @@ pub fn Delay(comptime t: Data.Tag, comptime S: usize) type {
     };
 }
 
-test "delay" {
+test "mem" {
     var n = Noize(
         1,
         [_]Data.Tag{.int},
         1,
         [_]Data.Tag{.int},
-        Delay(.int, 1),
+        Mem(.int, 1),
+    ){};
+    var input = [_]i64{ 1, 2, 3, 4, 5 };
+    var output = [_]i64{ 0, 1, 2, 3, 4 };
+    for (input, output) |i, o| {
+        n.input[0].int = i;
+        n.eval();
+        try expect(n.output[0].int == o);
+    }
+}
+
+pub fn Delay(comptime t: Data.Tag, comptime S: usize) type {
+    if (S == 0) {
+        @compileError("delay length == 0");
+    }
+
+    return struct {
+        pub const Input = [2]Data.Tag{ t, .uint };
+        pub const Output = [1]Data.Tag{t};
+
+        buffer: [S]Data = [1]Data{Data.init(t)} ** S,
+        length: usize = S,
+        pos: usize = 0,
+
+        const Self = @This();
+        fn eval(self: *Self, input: []Data, output: []Data) void {
+            const length = input[1].uint;
+            if (self.length != length) {
+                // length parameter has changed
+                self.length = @min(length, S);
+                if (self.length <= self.pos) {
+                    self.pos = 0;
+                }
+            }
+
+            output[0] = self.buffer[self.pos];
+            self.buffer[self.pos] = input[0];
+            self.pos = (self.pos + 1) % self.length;
+        }
+    };
+}
+
+test "delay" {
+    var n = Noize(
+        2,
+        [_]Data.Tag{ .int, .uint },
+        1,
+        [_]Data.Tag{.int},
+        Delay(.int, 5),
     ){};
     n.input[0].int = 1;
-    n.eval();
-    try expect(n.output[0].int == 0);
-    n.eval();
-    try expect(n.output[0].int == 1);
+    for (0..10) |i| {
+        const ii: i64 = @intCast(i);
+        n.input[0].int = ii;
+        n.input[1].uint = 5;
+        n.eval();
+        try expect(n.output[0].int == @max(ii - 5, 0));
+    }
 }
