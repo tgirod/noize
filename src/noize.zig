@@ -6,7 +6,7 @@ const Type = std.builtin.Type;
 
 const srate: f64 = 48000;
 
-/// any data exchanged between blocks is of type Data
+/// any data exchanged between nodes is of type Data
 pub const Data = union(enum) {
     const Self = @This();
     pub const Tag = std.meta.Tag(Self);
@@ -108,7 +108,7 @@ pub fn Noize(
     comptime TI: [I]Data.Tag, // tag of inputs
     comptime O: usize, // number of outputs
     comptime TO: [O]Data.Tag, // tag of outputs
-    comptime B: type, // root evaluation block
+    comptime B: type, // root evaluation node
 ) type {
     if (!std.mem.eql(Data.Tag, &TI, &B.Input) or !std.mem.eql(Data.Tag, &TO, &B.Output)) {
         @compileError("mismatch");
@@ -118,13 +118,13 @@ pub fn Noize(
         pub const Input = TI;
         pub const Output = TO;
 
-        block: B = B{},
+        node: B = B{},
         input: [I]Data = Data.arrayInit(I, TI),
         output: [O]Data = Data.arrayInit(O, TO),
 
         const Self = @This();
         pub fn eval(self: *Self) void {
-            self.block.eval(&self.input, &self.output);
+            self.node.eval(&self.input, &self.output);
         }
     };
 }
@@ -239,7 +239,7 @@ test "mul" {
     try std.testing.expectEqualSlices(Data, &expected, &n.output);
 }
 
-/// connect two blocks as a sequence
+/// connect two nodes as a sequence
 pub fn Seq(comptime A: type, comptime B: type) type {
     // check for mismatch between A.Output and B.Input
     if (!std.mem.eql(Data.Tag, &A.Output, &B.Input)) {
@@ -337,14 +337,14 @@ pub fn Merge(comptime A: type, comptime B: type) type {
 
         const Self = @This();
         fn eval(self: *Self, input: []Data, output: []Data) void {
-            // eval first block
+            // eval first node
             self.a.eval(input[0..Input.len], &self.bigbuf);
             // compute merge
             Data.arrayZero(&self.smallbuf);
             for (self.bigbuf, 0..) |v, i| {
                 self.smallbuf[i % small] = self.smallbuf[i % small].add(v);
             }
-            // eval second block
+            // eval second node
             self.b.eval(&self.smallbuf, output[0..Output.len]);
         }
     };
@@ -397,11 +397,11 @@ pub fn Split(comptime A: type, comptime B: type) type {
 
         const Self = @This();
         fn eval(self: *Self, input: []Data, output: []Data) void {
-            // eval first block
+            // eval first node
             self.a.eval(input[0..Input.len], &self.smallbuf);
             // compute split
             self.bigbuf = self.smallbuf ** @divExact(big, small);
-            // eval second block
+            // eval second node
             self.b.eval(&self.bigbuf, output[0..Output.len]);
         }
     };
@@ -496,10 +496,10 @@ test "rec" {
     try expect(n.output[0].int == 6);
 }
 
-/// takes a size S and a block type B, and duplicate B S times in parallel
+/// takes a size S and a node type B, and duplicate B S times in parallel
 pub fn Dup(comptime S: usize, comptime B: type) type {
     return struct {
-        blocks: [S]B = [_]B{B{}} ** S,
+        nodes: [S]B = [_]B{B{}} ** S,
 
         pub const Input = B.Input ** S;
         pub const Output = B.Output ** S;
@@ -510,7 +510,7 @@ pub fn Dup(comptime S: usize, comptime B: type) type {
             const in_step = B.Input.len;
             const out_step = B.Output.len;
             for (0..S) |i| {
-                self.blocks[i].eval(
+                self.nodes[i].eval(
                     input[i * in_step .. (i + 1) * in_step],
                     output[i * out_step .. (i + 1) * out_step],
                 );
