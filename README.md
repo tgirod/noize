@@ -11,13 +11,13 @@ making noise with zig. stated goals:
   - if the value is set, input is replaced with constant value
 - [x] delay line
 - [x] delay line with parametric length
-- [ ] buffer to read values
+- [x] buffer to read values
 - [ ] wavetable (PORT FROM PREVIOUS VERSION)
   - initialize with a size and a generator function
   - generator function fills array from 0 to 1
   - interpolation function
-- [ ] sinewave oscillator
-- [ ] sample rate (at runtime)
+- [x] sinewave oscillator
+- [x] sample rate (hardcoded)
 - [x] add tests everywhere
   - how do I make sure the tests in noize.zig are run ?
 - [ ] turn the project back to a library rather than exe
