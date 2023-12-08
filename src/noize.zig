@@ -572,6 +572,7 @@ test "mem" {
     }
 }
 
+/// delay line with dynamic length (maximum size defined at comptime)
 pub fn Delay(comptime t: Data.Tag, comptime S: usize) type {
     if (S == 0) {
         @compileError("delay length == 0");
