@@ -591,10 +591,10 @@ pub fn Delay(comptime t: Data.Tag, comptime S: usize) type {
             if (length == 0) {
                 output[0] = input[0];
             } else {
-                const read = @mod(self.write + length, S);
+                const read = (self.write + length) % S;
                 output[0] = self.buffer[read];
                 self.buffer[self.write] = input[0];
-                self.write = @mod(self.write + 1, length);
+                self.write = (self.write + 1) % S;
             }
         }
     };
