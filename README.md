@@ -6,8 +6,11 @@ making noise with zig. stated goals:
 
 # TODO
 
+- [ ] Par and Seq with more than two blocks
+- [ ] block inputs added as optionnals to the constructor
+  - if the value is set, input is replaced with constant value
 - [x] delay line
-- [ ] delay line with parametric length
+- [x] delay line with parametric length
 - [ ] buffer to read values
 - [ ] wavetable (PORT FROM PREVIOUS VERSION)
   - initialize with a size and a generator function
