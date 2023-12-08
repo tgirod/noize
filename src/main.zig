@@ -2,24 +2,17 @@ const std = @import("std");
 const n = @import("noize.zig");
 
 pub fn main() !void {
-    var tree = n.Noize(
-        2,
-        [_]n.Kind{ .float, .float },
+    var root = n.Noize(
         1,
-        [_]n.Kind{.float},
-        n.Add(.float),
+        [1]n.Data.Tag{.float},
+        1,
+        [1]n.Data.Tag{.float},
+        n.Sin(),
     ){};
 
-    tree.input[0].float = 100;
-    tree.input[1].float = 100;
-    tree.eval();
-    std.debug.print(
-        \\ {any}
-        \\ {any}
-    , .{ tree.input, tree.output });
-
-    // for (0..480) |index| {
-    //     root.eval(@as(u64, index), n.in, n.out);
-    //     std.debug.print("{any} {any}\n", .{ n.out[0], n.out[1] });
-    // }
+    for (0..480) |i| {
+        root.input[0].float = @as(f64, @floatFromInt(i)) * 10;
+        root.eval();
+        std.debug.print("{any}\n", .{root.output[0].float});
+    }
 }

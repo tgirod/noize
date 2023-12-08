@@ -4,6 +4,8 @@ const builtin = std.builtin;
 const expect = std.testing.expect;
 const Type = std.builtin.Type;
 
+const srate: f64 = 48000;
+
 /// any data exchanged between blocks is of type Data
 pub const Data = union(enum) {
     const Self = @This();
@@ -637,6 +639,24 @@ pub fn Reader(
             output[0] = self.buffer[self.read];
             self.read = (self.read + 1) % S;
             _ = input;
+        }
+    };
+}
+
+/// sinewave at the given frequency
+pub fn Sin() type {
+    return struct {
+        pub const Input = [1]Data.Tag{.float};
+        pub const Output = [1]Data.Tag{.float};
+
+        phase: f64 = 0,
+
+        const Self = @This();
+        fn eval(self: *Self, input: []Data, output: []Data) void {
+            output[0].float = @sin(self.phase);
+            const freq = input[0].float;
+            const step = freq * std.math.tau * 1 / srate;
+            self.phase = @mod(self.phase + step, std.math.tau);
         }
     };
 }
