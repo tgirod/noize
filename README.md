@@ -41,3 +41,17 @@ Also, I guess it is possible to inline every eval function. I'm curious to see i
   - cool optimizations ?
 - [ ] #someday parallelism : noize builds a tree of nodes - it would probably be possible to evaluate children in parallel.
 - [ ] #someday SIMD : audio servers usually ask for a sampleframe, not a sample individually. Turning those sampleframes into vectors and using SIMD instructions to process them all at once could be interesting.
+
+# ven. 08 déc. 2023 21:45:34 CET
+
+There is something crazy cool to do with tuples.
+
+1. define node's input and output as slices of types
+2. generate corresponding tuple types with `std.meta.Tuple`
+3. redefine eval as `eval(input: InputTuple, output: OutputTuple)`
+
+And now I can pass tuples from one eval call to the next. To write the various operators, I just need a way to extract a subpart of a tuple as another one.
+
+I'm pretty sure it is possible with some std.meta.fields shenanigans, but maybe there is another way ? Also, how is alignment working here ?
+
+Anyway, experiment is [here](./exp/tuple.zig)
