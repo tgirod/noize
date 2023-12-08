@@ -4,9 +4,9 @@ const n = @import("noize.zig");
 pub fn main() !void {
     var root = n.Noize(
         1,
-        [1]n.Data.Tag{.float},
+        [1]n.Tag{.float},
         1,
-        [1]n.Data.Tag{.float},
+        [1]n.Tag{.float},
         n.Sin(),
     ){};
 
