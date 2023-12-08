@@ -30,8 +30,16 @@ fn Par(comptime A: type, comptime B: type) type {
         b: B = B{},
 
         pub fn eval(self: *@This(), input: std.meta.Tuple(&Input)) std.meta.Tuple(&Output) {
-            _ = input;
-            _ = self;
+            var input_a: std.meta.Tuple(&A.Input) = undefined;
+            var input_b: std.meta.Tuple(&B.Input) = undefined;
+            inline for (input, 0..) |v, i| {
+                if (i < input_a.len) {
+                    input_a[i] = v;
+                } else {
+                    input_b[i - input_a.len] = v;
+                }
+            }
+            return self.a.eval(input_a) ++ self.b.eval(input_b);
         }
     };
 }
@@ -81,10 +89,16 @@ pub fn main() void {
     //     \\ {any}
     // , .{ t2, t3 });
 
-    var x: std.meta.Tuple(&Add(bool).Input) = undefined;
-    x[0] = true;
-    x[1] = false;
+    // var x: std.meta.Tuple(&Add(bool).Input) = undefined;
+    // x[0] = true;
+    // x[1] = false;
+    // std.debug.print(
+    //     \\ {any}
+    // , .{x});
+
+    var root = Par(Id(u8), Id(u8)){};
+    var o = root.eval(.{ 1, 2 });
     std.debug.print(
         \\ {any}
-    , .{x});
+    , .{o});
 }
