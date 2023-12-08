@@ -1,15 +1,5 @@
 const std = @import("std");
 
-fn Node(
-    comptime input: []const type,
-    comptime output: []const type,
-) type {
-    return struct {
-        pub const Input: [input.len]type = input;
-        pub const Output: [output.len]type = output;
-    };
-}
-
 fn Id(comptime t: type) type {
     return struct {
         pub const Input = [1]type{t};
