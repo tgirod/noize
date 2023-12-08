@@ -617,3 +617,26 @@ test "delay" {
         try expect(n.output[0].int == @max(ii - 5, 0));
     }
 }
+
+/// loop over a buffer
+// NOTE: not very useful, putting it as a basis for something else
+pub fn Reader(
+    comptime S: usize,
+    comptime T: Data.Tag,
+    comptime B: [S]std.meta.TagPayload(Data, @tagName(T)),
+) type {
+    return struct {
+        pub const Input = [0]Data.Tag{};
+        pub const Output = [1]Data.Tag{T};
+
+        buffer: B,
+        read: usize = 0,
+
+        const Self = @This();
+        fn eval(self: *Self, input: []Data, output: []Data) void {
+            output[0] = self.buffer[self.read];
+            self.read = (self.read + 1) % S;
+            _ = input;
+        }
+    };
+}
