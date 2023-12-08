@@ -141,6 +141,38 @@ pub fn Id(comptime t: Data.Tag) type {
     };
 }
 
+/// always evaluate to the value passed at comptime
+pub fn Const(comptime T: Data.Tag, comptime value: std.meta.TagPayload(Data, T)) type {
+    return struct {
+        pub const Input = [0]Data.Tag{};
+        pub const Output = [1]Data.Tag{T};
+
+        const val = @unionInit(Data, @tagName(T), value);
+        const Self = @This();
+        inline fn eval(self: *Self, input: []Data, output: []Data) void {
+            _ = input;
+            _ = self;
+            output[0] = val;
+        }
+    };
+}
+
+test "const" {
+    var n = Noize(
+        0,
+        [_]Data.Tag{},
+        1,
+        [_]Data.Tag{.int},
+        Const(.int, 23),
+    ){};
+
+    n.eval();
+    var expected = [_]Data{
+        .{ .int = 23 },
+    };
+    try std.testing.expectEqualSlices(Data, &expected, &n.output);
+}
+
 /// add two entries
 pub fn Add(comptime t: Data.Tag) type {
     return struct {
