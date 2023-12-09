@@ -1,432 +1,294 @@
 const std = @import("std");
-const comptimePrint = std.fmt.comptimePrint;
-const builtin = std.builtin;
+const Tuple = std.meta.Tuple;
+
 const expect = std.testing.expect;
-const Type = std.builtin.Type;
+const expectEqual = std.testing.expectEqual;
 
 const srate: f64 = 48000;
 
-pub const Tag = std.meta.Tag(Data);
-
-/// any data exchanged between nodes is of type Data
-pub const Data = union(enum) {
-    float: f64,
-    int: i64,
-    size: usize,
-
-    /// creates Data of a given tag with 0 value
-    inline fn init(t: Tag) Data {
-        switch (t) {
-            .float => return Data{ .float = 0 },
-            .int => return Data{ .int = 0 },
-            .size => return Data{ .size = 0 },
-        }
-    }
-
-    /// creates an array of Data of a given size, with given tags
-    fn arrayInit(comptime S: usize, tags: [S]Tag) [S]Data {
-        var arr: [S]Data = undefined;
-        for (tags, 0..) |t, i| {
-            arr[i] = Data.init(t);
-        }
-        return arr;
-    }
-
-    /// resets to zero value
-    inline fn zero(self: *Data) void {
-        switch (self.*) {
-            Tag.float => self.float = 0,
-            Tag.int => self.int = 0,
-            Tag.size => self.size = 0,
-        }
-    }
-
-    /// resets an array to zero
-    inline fn arrayZero(data: []Data) void {
-        for (data) |*d| d.zero();
-    }
-
-    /// adds two Data of the same type
-    inline fn add(self: Data, other: Data) Data {
-        switch (self) {
-            Tag.float => return Data{ .float = self.float + other.float },
-            Tag.int => return Data{ .int = self.int + other.int },
-            Tag.size => return Data{ .size = self.size + other.size },
-        }
-    }
-
-    /// multiplies two Data of the same type
-    inline fn mul(self: Data, other: Data) Data {
-        switch (self) {
-            Tag.float => return Data{ .float = self.float * other.float },
-            Tag.int => return Data{ .int = self.int * other.int },
-            Tag.size => return Data{ .size = self.size * other.size },
-        }
-    }
-};
-
-test "Data.arrayZero" {
-    var data = [2]Data{
-        .{ .float = 23 },
-        .{ .int = 42 },
-    };
-    var expected = [2]Data{
-        .{ .float = 0 },
-        .{ .int = 0 },
-    };
-    Data.arrayZero(&data);
-    try std.testing.expectEqualSlices(Data, &expected, &data);
-}
-
-test "data.arrayInit" {
-    var d = Data.arrayInit(2, [_]Tag{ .float, .int });
-    try std.testing.expectEqualSlices(
-        Data,
-        &[2]Data{ .{ .float = 0 }, .{ .int = 0 } },
-        &d,
-    );
-}
-
-test "Data.add" {
-    var a = Data{ .float = 23 };
-    var b = Data{ .float = 42 };
-    a = a.add(b);
-    try expect(a.float == 23 + 42);
-}
-
-test "Data.mul" {
-    var a = Data{ .float = 23 };
-    var b = Data{ .float = 42 };
-    a = a.mul(b);
-    try expect(a.float == 23 * 42);
-}
-
 /// the main struct, that should connect to the outside
-pub fn Noize(
-    comptime I: usize, // number of inputs
-    comptime TI: [I]Tag, // tag of inputs
-    comptime O: usize, // number of outputs
-    comptime TO: [O]Tag, // tag of outputs
-    comptime B: type, // root evaluation node
-) type {
-    if (!std.mem.eql(Tag, &TI, &B.Input) or !std.mem.eql(Tag, &TO, &B.Output)) {
-        @compileError("mismatch");
-    }
-
+pub fn Noize(comptime N: type) type {
     return struct {
-        pub const Input = TI;
-        pub const Output = TO;
+        node: N = N{}, // root node
+        in: Tuple(&N.Input),
+        out: Tuple(&N.Output),
 
-        node: B = B{},
-        input: [I]Data = Data.arrayInit(I, TI),
-        output: [O]Data = Data.arrayInit(O, TO),
-
-        const Self = @This();
-        pub fn eval(self: *Self) void {
-            self.node.eval(&self.input, &self.output);
+        pub fn eval(self: *@This()) void {
+            self.out = self.eval(self.in);
         }
     };
 }
 
 /// identity function, mostly for testing purpose
-pub fn Id(comptime t: Tag) type {
+pub fn Id(comptime T: type) type {
     return struct {
-        pub const Input = [1]Tag{t};
-        pub const Output = [1]Tag{t};
+        pub const Input = [1]type{T};
+        pub const Output = [1]type{T};
 
-        const Self = @This();
-        fn eval(self: *Self, input: []Data, output: []Data) void {
+        pub fn eval(self: *@This(), input: Tuple(&Input)) Tuple(&Output) {
             _ = self;
-            output[0] = input[0];
+            return .{input[0]};
         }
     };
 }
 
-/// always evaluate to the value passed at comptime
-pub fn Const(comptime T: Tag, comptime value: std.meta.TagPayload(Data, T)) type {
-    return struct {
-        pub const Input = [0]Tag{};
-        pub const Output = [1]Tag{T};
+test "id" {
+    const N = Id(u8);
+    var n = N{};
+    const expected = Tuple(&N.Output){23};
+    const output = n.eval(expected);
+    try expectEqual(expected, output);
+}
 
-        const val = @unionInit(Data, @tagName(T), value);
-        const Self = @This();
-        inline fn eval(self: *Self, input: []Data, output: []Data) void {
+/// always evaluate to the value passed at comptime
+pub fn Const(comptime T: type, comptime value: T) type {
+    return struct {
+        pub const Input = [0]type{};
+        pub const Output = [1]type{T};
+
+        pub fn eval(self: *@This(), input: Tuple(&Input)) Tuple(&Output) {
             _ = input;
             _ = self;
-            output[0] = val;
+            return .{value};
         }
     };
 }
 
 test "const" {
-    var n = Noize(
-        0,
-        [_]Tag{},
-        1,
-        [_]Tag{.int},
-        Const(.int, 23),
-    ){};
-
-    n.eval();
-    var expected = [_]Data{
-        .{ .int = 23 },
-    };
-    try std.testing.expectEqualSlices(Data, &expected, &n.output);
+    const N = Const(u8, 23);
+    var n = N{};
+    const expected: Tuple(&N.Output) = .{23};
+    const output = n.eval(.{});
+    try expectEqual(expected, output);
 }
 
 /// add two entries
-pub fn Add(comptime t: Tag) type {
+pub fn Add(comptime T: type) type {
     return struct {
-        pub const Input = [2]Tag{ t, t };
-        pub const Output = [1]Tag{t};
+        pub const Input = [2]type{ T, T };
+        pub const Output = [1]type{T};
 
-        const Self = @This();
-        fn eval(self: *Self, input: []Data, output: []Data) void {
+        fn eval(self: *@This(), input: Tuple(&Input)) Tuple(&Output) {
             _ = self;
-            output[0] = input[0].add(input[1]);
+            return .{input[0] + input[1]};
         }
     };
 }
 
 test "add" {
-    var n = Noize(
-        2,
-        [_]Tag{ .int, .int },
-        1,
-        [_]Tag{.int},
-        Add(.int),
-    ){};
-
-    n.input[0].int = 23;
-    n.input[1].int = 42;
-    n.eval();
-    var expected = [_]Data{
-        .{ .int = 23 + 42 },
-    };
-    try std.testing.expectEqualSlices(Data, &expected, &n.output);
+    const N = Add(u8);
+    var n = N{};
+    const expected = Tuple(&N.Output){23 + 42};
+    const output = n.eval(.{ 23, 42 });
+    try expectEqual(expected, output);
 }
 
 /// multiply two entries
-pub fn Mul(comptime t: Tag) type {
+pub fn Mul(comptime T: type) type {
     return struct {
-        pub const Input = [2]Tag{ t, t };
-        pub const Output = [1]Tag{t};
+        pub const Input = [2]type{ T, T };
+        pub const Output = [1]type{T};
 
-        const Self = @This();
-        fn eval(self: *Self, input: []Data, output: []Data) void {
+        fn eval(self: *@This(), input: Tuple(&Input)) Tuple(&Output) {
             _ = self;
-            output[0] = input[0].mul(input[1]);
+            return .{input[0] * input[1]};
         }
     };
 }
 
 test "mul" {
-    var n = Noize(
-        2,
-        [_]Tag{ .int, .int },
-        1,
-        [_]Tag{.int},
-        Mul(.int),
-    ){};
-
-    n.input[0].int = 23;
-    n.input[1].int = 42;
-    n.eval();
-    var expected = [_]Data{
-        .{ .int = 23 * 42 },
-    };
-    try std.testing.expectEqualSlices(Data, &expected, &n.output);
+    const N = Mul(u64);
+    var n = N{};
+    const expected = Tuple(&N.Output){23 * 42};
+    const output = n.eval(.{ 23, 42 });
+    try expectEqual(expected, output);
 }
 
 /// connect two nodes as a sequence
 pub fn Seq(comptime A: type, comptime B: type) type {
-    // check for mismatch between A.Output and B.Input
-    if (!std.mem.eql(Tag, &A.Output, &B.Input)) {
+    if (!std.mem.eql(type, &A.Output, &B.Input)) {
         @compileError("mismatch");
     }
 
-    const buflen = A.Output.len;
-
     return struct {
-        prev: A = A{},
-        next: B = B{},
-        buffer: [buflen]Data = Data.arrayInit(A.Output.len, A.Output),
-
         pub const Input = A.Input;
         pub const Output = B.Output;
+        a: A = A{},
+        b: B = B{},
 
-        const Self = @This();
-
-        fn eval(self: *Self, input: []Data, output: []Data) void {
-            self.prev.eval(input, &self.buffer);
-            self.next.eval(&self.buffer, output);
+        pub fn eval(self: *@This(), input: Tuple(&Input)) Tuple(&Output) {
+            return self.b.eval(self.a.eval(input));
         }
     };
 }
 
 test "seq" {
-    var n = Noize(
-        1,
-        [_]Tag{.float},
-        1,
-        [_]Tag{.float},
-        Seq(Id(.float), Id(.float)),
-    ){};
-    n.input[0].float = 23;
-    n.eval();
-    try std.testing.expectEqualSlices(Data, &n.input, &n.output);
+    const N = Seq(Id(u8), Id(u8));
+    var n = N{};
+    const expected = Tuple(&N.Output){23};
+    const output = n.eval(expected);
+    try expectEqual(expected, output);
 }
 
+/// combine two nodes in parallel
 pub fn Par(comptime A: type, comptime B: type) type {
     return struct {
+        pub const Input = A.Input ++ B.Input;
+        pub const Output = A.Output ++ B.Output;
         a: A = A{},
         b: B = B{},
 
-        pub const Input = A.Input ++ B.Input;
-        pub const Output = A.Output ++ B.Output;
-
-        const Self = @This();
-        const pivot_input = A.Input.len;
-        const pivot_output = A.Output.len;
-
-        fn eval(self: *Self, input: []Data, output: []Data) void {
-            self.a.eval(input[0..pivot_input], output[0..pivot_output]);
-            self.b.eval(input[pivot_input..], output[pivot_output..]);
+        pub fn eval(self: *@This(), input: Tuple(&Input)) Tuple(&Output) {
+            var input_a: Tuple(&A.Input) = undefined;
+            var input_b: Tuple(&B.Input) = undefined;
+            inline for (input, 0..) |v, i| {
+                if (i < input_a.len) {
+                    input_a[i] = v;
+                } else {
+                    input_b[i - input_a.len] = v;
+                }
+            }
+            return self.a.eval(input_a) ++ self.b.eval(input_b);
         }
     };
 }
 
 test "par" {
-    var n = Noize(
-        2,
-        [_]Tag{ .int, .float },
-        2,
-        [_]Tag{ .int, .float },
-        Par(Id(.int), Id(.float)),
-    ){};
+    const N = Par(Id(u8), Id(u8));
+    var n = N{};
+    const expected = Tuple(&N.Output){ 23, 42 };
+    const output = n.eval(expected);
+    try expectEqual(expected, output);
+}
 
-    n.input = [2]Data{
-        .{ .int = 23 },
-        .{ .float = 42 },
+/// takes a size S and a node type N, and duplicate N S times in parallel
+pub fn Dup(comptime N: type, comptime S: usize) type {
+    return struct {
+        nodes: [S]N = [1]N{N{}} ** S,
+
+        pub const Input = N.Input ** S;
+        pub const Output = N.Output ** S;
+
+        pub fn eval(self: *@This(), input: Tuple(&Input)) Tuple(&Output) {
+            // input for one node
+            var in: Tuple(&N.Input) = undefined;
+            // output for one node
+            var out: Tuple(&N.Output) = undefined;
+            // final output
+            var output: Tuple(&Output) = undefined;
+
+            inline for (0..S) |n| {
+                // prepare input tuple
+                inline for (0..in.len) |i| {
+                    in[i] = input[n * in.len + i];
+                }
+                // evaluate node
+                out = self.nodes[n].eval(in);
+                // copy result to output
+                inline for (0..out.len) |o| {
+                    output[n * out.len + o] = out[o];
+                }
+            }
+
+            return output;
+        }
     };
-    n.eval();
-    try std.testing.expectEqualSlices(Data, &n.input, &n.output);
+}
+
+test "dup" {
+    const N = Dup(Id(u8), 2);
+    var n = N{};
+    const input = Tuple(&N.Output){ 1, 2 };
+    const output = n.eval(input);
+    try expectEqual(input, output);
 }
 
 pub fn Merge(comptime A: type, comptime B: type) type {
+    // checking length
     const big = A.Output.len;
     const small = B.Input.len;
     if (big % small != 0) {
         @compileError("length mismatch");
     }
-    // checking if types match
+
+    // checking types
     const repeat = B.Input ** @divExact(big, small);
-    if (!std.mem.eql(Tag, &repeat, &A.Output)) {
+    if (!std.mem.eql(type, &repeat, &A.Output)) {
         @compileError("type mismatch");
     }
 
     return struct {
-        a: A = A{},
-        b: B = B{},
-        bigbuf: [big]Data = Data.arrayInit(big, A.Output),
-        smallbuf: [small]Data = Data.arrayInit(small, B.Input),
-
         pub const Input = A.Input;
         pub const Output = B.Output;
+        a: A = A{},
+        b: B = B{},
 
-        const Self = @This();
-        fn eval(self: *Self, input: []Data, output: []Data) void {
-            // eval first node
-            self.a.eval(input[0..Input.len], &self.bigbuf);
-            // compute merge
-            Data.arrayZero(&self.smallbuf);
-            for (self.bigbuf, 0..) |v, i| {
-                self.smallbuf[i % small] = self.smallbuf[i % small].add(v);
+        pub fn eval(self: *@This(), input: Tuple(&Input)) Tuple(&Output) {
+            const output_a = self.a.eval(input);
+            var input_b: Tuple(&B.Input) = undefined;
+            inline for (output_a, 0..) |v, i| {
+                if (i < input_b.len) {
+                    input_b[i] = v;
+                } else {
+                    input_b[i % small] += v;
+                }
             }
-            // eval second node
-            self.b.eval(&self.smallbuf, output[0..Output.len]);
+            return self.b.eval(input_b);
         }
     };
 }
 
 test "merge" {
-    var n = Noize(
-        4,
-        [_]Tag{.float} ** 4,
-        2,
-        [_]Tag{.float} ** 2,
-        Merge(
-            Par(Par(Id(.float), Id(.float)), Par(Id(.float), Id(.float))),
-            Par(Id(.float), Id(.float)),
+    const N = Merge(
+        Par(
+            Par(Const(u8, 1), Const(u8, 2)),
+            Par(Const(u8, 3), Const(u8, 4)),
         ),
-    ){};
-    n.input[0].float = 1;
-    n.input[1].float = 2;
-    n.input[2].float = 4;
-    n.input[3].float = 8;
-    n.eval();
-    // expected: 5, 10
-    const expected = [2]Data{
-        .{ .float = 5 },
-        .{ .float = 10 },
-    };
-    try std.testing.expectEqualSlices(Data, &expected, &n.output);
+        Par(Id(u8), Id(u8)),
+    );
+    var n = N{};
+    const expected = Tuple(&N.Output){ 4, 6 };
+    const output = n.eval(.{});
+    try expectEqual(expected, output);
 }
 
 pub fn Split(comptime A: type, comptime B: type) type {
+    // checking length
     const small = A.Output.len;
     const big = B.Input.len;
     if (big % small != 0) {
         @compileError("length mismatch");
     }
-    // checking if types match
-    const repeat = A.Output ** @divExact(big, small);
-    if (!std.mem.eql(Tag, &repeat, &B.Input)) {
+    const ratio = @divExact(big, small);
+
+    // checking types
+    const repeat = A.Output ** ratio;
+    if (!std.mem.eql(type, &repeat, &B.Input)) {
         @compileError("type mismatch");
     }
 
     return struct {
-        a: A = A{},
-        b: B = B{},
-        bigbuf: [big]Data = Data.arrayInit(big, B.Input),
-        smallbuf: [small]Data = Data.arrayInit(small, A.Output),
-
         pub const Input = A.Input;
         pub const Output = B.Output;
+        a: A = A{},
+        b: B = B{},
 
-        const Self = @This();
-        fn eval(self: *Self, input: []Data, output: []Data) void {
-            // eval first node
-            self.a.eval(input[0..Input.len], &self.smallbuf);
-            // compute split
-            self.bigbuf = self.smallbuf ** @divExact(big, small);
-            // eval second node
-            self.b.eval(&self.bigbuf, output[0..Output.len]);
+        pub fn eval(self: *@This(), input: Tuple(&Input)) Tuple(&Output) {
+            const output_a = self.a.eval(input);
+            return self.b.eval(output_a ** ratio);
         }
     };
 }
 
 test "split" {
-    var n = Noize(
-        2,
-        [_]Tag{.float} ** 2,
-        4,
-        [_]Tag{.float} ** 4,
-        Split(
-            Par(Id(.float), Id(.float)),
-            Par(Par(Id(.float), Id(.float)), Par(Id(.float), Id(.float))),
-        ),
-    ){};
-    n.input[0].float = 1;
-    n.input[1].float = 2;
-    n.eval();
-    const expected = [4]Data{
-        .{ .float = 1 },
-        .{ .float = 2 },
-        .{ .float = 1 },
-        .{ .float = 2 },
-    };
-    try std.testing.expectEqualSlices(Data, &expected, &n.output);
+    const N = Split(
+        Dup(Id(u8), 2),
+        Dup(Id(u8), 4),
+    );
+    var n = N{};
+    const expected = Tuple(&N.Output){ 1, 2, 1, 2 };
+    const output = n.eval(.{ 1, 2 });
+    try expectEqual(expected, output);
 }
 
 pub fn Rec(comptime A: type, comptime B: type) type {
@@ -434,7 +296,7 @@ pub fn Rec(comptime A: type, comptime B: type) type {
         @compileError("length mismatch : A --> B");
     }
 
-    if (!std.mem.eql(Tag, &B.Input, &A.Output)) {
+    if (!std.mem.eql(type, &B.Input, &A.Output)) {
         @compileError("type mismatch : A --> B");
     }
 
@@ -442,220 +304,164 @@ pub fn Rec(comptime A: type, comptime B: type) type {
         @compileError("length mismatch : B --> A");
     }
 
-    if (!std.mem.eql(Tag, A.Input[0..B.Output.len], &B.Output)) {
+    if (!std.mem.eql(type, A.Input[0..B.Output.len], &B.Output)) {
         @compileError("type mismatch : B --> A");
     }
 
-    const split = B.Output.len;
-    comptime var input_tag: [A.Input.len - split]Tag = undefined;
-    @memcpy(&input_tag, A.Input[split..]);
-
+    const len = A.Input.len - B.Output.len;
     return struct {
+        pub const Input = @as([len]type, A.Input[B.Output.len..].*);
+        pub const Output = A.Output;
         a: A = A{},
         b: B = B{},
-        buf_a: [A.Input.len]Data = Data.arrayInit(A.Input.len, A.Input),
-        buf_b: [B.Input.len]Data = Data.arrayInit(B.Input.len, B.Input),
+        mem: Tuple(&A.Output) = undefined,
 
-        pub const Input = input_tag;
-        pub const Output = A.Output;
-
-        const Self = @This();
-        fn eval(self: *Self, input: []Data, output: []Data) void {
+        pub fn eval(self: *@This(), input: Tuple(&Input)) Tuple(&Output) {
             // eval B from previous iteration
-            // store the result in the first part of A's input buffer
-            self.b.eval(&self.buf_b, self.buf_a[0..split]);
-            // complete A's input buffer with external source
-            @memcpy(self.buf_a[split..], input);
-            // eval A
-            self.a.eval(&self.buf_a, output[0..A.Output.len]);
-            // copy output for next iteration
-            @memcpy(&self.buf_b, output[0..A.Output.len]);
+            const output_b = self.b.eval(self.mem);
+            // concat external input to match A.Input
+            const input_a = output_b ++ input;
+            // evaluate A and store result in mem
+            self.mem = self.a.eval(input_a);
+            return self.mem;
         }
     };
 }
 
 test "rec" {
-    var n = Noize(
-        1,
-        [_]Tag{.int},
-        1,
-        [_]Tag{.int},
-        Rec(
-            Add(.int),
-            Id(.int),
-        ),
-    ){};
-    n.input[0].int = 1;
-    n.eval();
-    try expect(n.output[0].int == 1);
-    n.eval();
-    try expect(n.output[0].int == 2);
-    n.input[0].int = 4;
-    n.eval();
-    try expect(n.output[0].int == 6);
-}
-
-/// takes a size S and a node type B, and duplicate B S times in parallel
-pub fn Dup(comptime S: usize, comptime B: type) type {
-    return struct {
-        nodes: [S]B = [_]B{B{}} ** S,
-
-        pub const Input = B.Input ** S;
-        pub const Output = B.Output ** S;
-
-        const Self = @This();
-
-        fn eval(self: *Self, input: []Data, output: []Data) void {
-            const in_step = B.Input.len;
-            const out_step = B.Output.len;
-            for (0..S) |i| {
-                self.nodes[i].eval(
-                    input[i * in_step .. (i + 1) * in_step],
-                    output[i * out_step .. (i + 1) * out_step],
-                );
-            }
-        }
-    };
-}
-
-test "dup" {
-    const s = 4;
-    var n = Noize(
-        s,
-        [_]Tag{.float} ** s,
-        s,
-        [_]Tag{.float} ** s,
-        Dup(s, Id(.float)),
-    ){};
-    try expect(@TypeOf(n).Input.len == s);
-    try expect(@TypeOf(n).Output.len == s);
-    n.input = [_]Data{.{ .float = 1 }} ** s;
-    n.eval();
-    try std.testing.expectEqualSlices(Data, &n.input, &n.output);
+    const N = Rec(
+        Add(u8),
+        Id(u8),
+    );
+    var n = N{};
+    for (1..5) |i| {
+        const out = n.eval(.{1});
+        try expectEqual(.{i}, out);
+    }
 }
 
 /// delay line with a fixed size
-pub fn Mem(comptime t: Tag, comptime S: usize) type {
+pub fn Mem(comptime T: type, comptime S: usize) type {
     if (S == 0) {
         @compileError("delay length == 0");
     }
 
     return struct {
-        pub const Input = [1]Tag{t};
-        pub const Output = [1]Tag{t};
+        pub const Input = [1]type{T};
+        pub const Output = [1]type{T};
 
-        buffer: [S]Data = [1]Data{Data.init(t)} ** S,
+        mem: [S]T = [1]T{0} ** S,
         pos: usize = 0,
 
-        const Self = @This();
-        fn eval(self: *Self, input: []Data, output: []Data) void {
-            output[0] = self.buffer[self.pos];
-            self.buffer[self.pos] = input[0];
+        pub fn eval(self: *@This(), input: Tuple(&Input)) Tuple(&Output) {
+            const v = self.mem[self.pos];
+            self.mem[self.pos] = input[0];
             self.pos = (self.pos + 1) % S;
+            return .{v};
         }
     };
 }
 
 test "mem" {
-    var n = Noize(
-        1,
-        [_]Tag{.int},
-        1,
-        [_]Tag{.int},
-        Mem(.int, 1),
-    ){};
-    var input = [_]i64{ 1, 2, 3, 4, 5 };
-    var output = [_]i64{ 0, 1, 2, 3, 4 };
-    for (input, output) |i, o| {
-        n.input[0].int = i;
-        n.eval();
-        try expect(n.output[0].int == o);
+    const N = Mem(u8, 1);
+    var n = N{};
+    const input = [_]u8{ 1, 2, 3, 4, 5 };
+    const expected = [_]u8{ 0, 1, 2, 3, 4 };
+    for (input, expected) |i, e| {
+        const out = n.eval(.{i});
+        try expectEqual(e, out[0]);
     }
 }
 
 /// delay line with dynamic length (maximum size defined at comptime)
-pub fn Delay(comptime t: Tag, comptime S: usize) type {
+pub fn Delay(comptime T: type, comptime S: usize) type {
     if (S == 0) {
         @compileError("delay length == 0");
     }
 
     return struct {
-        pub const Input = [2]Tag{ t, .size };
-        pub const Output = [1]Tag{t};
+        pub const Input = [2]type{ T, usize };
+        pub const Output = [1]type{T};
 
-        buffer: [S]Data = [1]Data{Data.init(t)} ** S,
-        write: usize = 0,
+        mem: [S]T = [1]T{0} ** S,
+        pos: usize = 0,
 
-        const Self = @This();
-        fn eval(self: *Self, input: []Data, output: []Data) void {
-            const length = @min(input[1].size, S);
+        pub fn eval(self: *@This(), input: Tuple(&Input)) Tuple(&Output) {
+            // clamping length to S
+            const length = @min(input[1], S);
             if (length == 0) {
-                output[0] = input[0];
+                // shortcircuit delay if length == 0
+                return .{input[0]};
             } else {
-                const read = (self.write + length) % S;
-                output[0] = self.buffer[read];
-                self.buffer[self.write] = input[0];
-                self.write = (self.write + 1) % S;
+                const read = (self.pos + length) % S;
+                const v = self.mem[read];
+                self.mem[self.pos] = input[0];
+                self.pos = (self.pos + 1) % S;
+                return .{v};
             }
         }
     };
 }
 
 test "delay" {
-    var n = Noize(
-        2,
-        [_]Tag{ .int, .size },
-        1,
-        [_]Tag{.int},
-        Delay(.int, 5),
-    ){};
-    n.input[0].int = 1;
-    for (0..10) |i| {
-        const ii: i64 = @intCast(i);
-        n.input[0].int = ii;
-        n.input[1].size = 5;
-        n.eval();
-        try expect(n.output[0].int == @max(ii - 5, 0));
+    const N = Delay(u8, 1);
+    var n = N{};
+    const input = [_]u8{ 1, 2, 3, 4, 5 };
+    const expected = [_]u8{ 0, 1, 2, 3, 4 };
+    for (input, expected) |i, e| {
+        const out = n.eval(.{ i, 1 });
+        try expectEqual(e, out[0]);
     }
 }
 
 /// loop over a buffer
 // NOTE: not very useful, putting it as a basis for something else
-pub fn Reader(
+pub fn Loop(
+    comptime T: type,
     comptime S: usize,
-    comptime T: Tag,
-    comptime B: [S]std.meta.TagPayload(Data, @tagName(T)),
+    comptime data: [S]T,
 ) type {
     return struct {
-        pub const Input = [0]Tag{};
-        pub const Output = [1]Tag{T};
+        pub const Input = [0]type{};
+        pub const Output = [1]type{T};
 
-        buffer: B,
-        read: usize = 0,
+        mem: [S]T = data,
+        pos: usize = 0,
 
-        const Self = @This();
-        fn eval(self: *Self, input: []Data, output: []Data) void {
-            output[0] = self.buffer[self.read];
-            self.read = (self.read + 1) % S;
+        pub fn eval(self: *@This(), input: Tuple(&Input)) Tuple(&Output) {
             _ = input;
+            const v = self.mem[self.pos];
+            self.pos = (self.pos + 1) % S;
+            return .{v};
         }
     };
+}
+
+test "loop" {
+    const data = [4]u8{ 1, 2, 3, 4 };
+    const N = Loop(u8, data.len, data);
+    var n = N{};
+    for (0..data.len * 2) |i| {
+        const out = n.eval(.{});
+        try expectEqual(data[i % data.len], out[0]);
+    }
 }
 
 /// sinewave at the given frequency
 pub fn Sin() type {
     return struct {
-        pub const Input = [1]Tag{.float};
-        pub const Output = [1]Tag{.float};
+        pub const Input = [1]type{f64};
+        pub const Output = [1]type{f64};
 
         phase: f64 = 0,
 
         const Self = @This();
-        fn eval(self: *Self, input: []Data, output: []Data) void {
-            output[0].float = @sin(self.phase);
-            const freq = input[0].float;
+        pub fn eval(self: *@This(), input: Tuple(&Input)) Tuple(&Output) {
+            const v = @sin(self.phase);
+            const freq = input[0];
             const step = freq * std.math.tau * 1 / srate;
             self.phase = @mod(self.phase + step, std.math.tau);
+            return .{v};
         }
     };
 }
