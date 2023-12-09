@@ -13,7 +13,7 @@ pub fn Noize(comptime N: type) type {
         in: Tuple(&N.Input),
         out: Tuple(&N.Output),
 
-        pub fn eval(self: *@This()) void {
+        pub inline fn eval(self: *@This()) void {
             self.out = self.eval(self.in);
         }
     };
@@ -25,7 +25,7 @@ pub fn Id(comptime T: type) type {
         pub const Input = [1]type{T};
         pub const Output = [1]type{T};
 
-        pub fn eval(self: *@This(), input: Tuple(&Input)) Tuple(&Output) {
+        pub inline fn eval(self: *@This(), input: Tuple(&Input)) Tuple(&Output) {
             _ = self;
             return .{input[0]};
         }
@@ -46,7 +46,7 @@ pub fn Const(comptime T: type, comptime value: T) type {
         pub const Input = [0]type{};
         pub const Output = [1]type{T};
 
-        pub fn eval(self: *@This(), input: Tuple(&Input)) Tuple(&Output) {
+        pub inline fn eval(self: *@This(), input: Tuple(&Input)) Tuple(&Output) {
             _ = input;
             _ = self;
             return .{value};
@@ -116,7 +116,7 @@ pub fn Seq(comptime A: type, comptime B: type) type {
         a: A = A{},
         b: B = B{},
 
-        pub fn eval(self: *@This(), input: Tuple(&Input)) Tuple(&Output) {
+        pub inline fn eval(self: *@This(), input: Tuple(&Input)) Tuple(&Output) {
             return self.b.eval(self.a.eval(input));
         }
     };
@@ -138,7 +138,7 @@ pub fn Par(comptime A: type, comptime B: type) type {
         a: A = A{},
         b: B = B{},
 
-        pub fn eval(self: *@This(), input: Tuple(&Input)) Tuple(&Output) {
+        pub inline fn eval(self: *@This(), input: Tuple(&Input)) Tuple(&Output) {
             var input_a: Tuple(&A.Input) = undefined;
             var input_b: Tuple(&B.Input) = undefined;
             inline for (input, 0..) |v, i| {
@@ -169,7 +169,7 @@ pub fn Dup(comptime N: type, comptime S: usize) type {
         pub const Input = N.Input ** S;
         pub const Output = N.Output ** S;
 
-        pub fn eval(self: *@This(), input: Tuple(&Input)) Tuple(&Output) {
+        pub inline fn eval(self: *@This(), input: Tuple(&Input)) Tuple(&Output) {
             // input for one node
             var in: Tuple(&N.Input) = undefined;
             // output for one node
@@ -223,7 +223,7 @@ pub fn Merge(comptime A: type, comptime B: type) type {
         a: A = A{},
         b: B = B{},
 
-        pub fn eval(self: *@This(), input: Tuple(&Input)) Tuple(&Output) {
+        pub inline fn eval(self: *@This(), input: Tuple(&Input)) Tuple(&Output) {
             const output_a = self.a.eval(input);
             var input_b: Tuple(&B.Input) = undefined;
             inline for (output_a, 0..) |v, i| {
@@ -273,7 +273,7 @@ pub fn Split(comptime A: type, comptime B: type) type {
         a: A = A{},
         b: B = B{},
 
-        pub fn eval(self: *@This(), input: Tuple(&Input)) Tuple(&Output) {
+        pub inline fn eval(self: *@This(), input: Tuple(&Input)) Tuple(&Output) {
             const output_a = self.a.eval(input);
             return self.b.eval(output_a ** ratio);
         }
@@ -316,7 +316,7 @@ pub fn Rec(comptime A: type, comptime B: type) type {
         b: B = B{},
         mem: Tuple(&A.Output) = undefined,
 
-        pub fn eval(self: *@This(), input: Tuple(&Input)) Tuple(&Output) {
+        pub inline fn eval(self: *@This(), input: Tuple(&Input)) Tuple(&Output) {
             // eval B from previous iteration
             const output_b = self.b.eval(self.mem);
             // concat external input to match A.Input
@@ -353,7 +353,7 @@ pub fn Mem(comptime T: type, comptime S: usize) type {
         mem: [S]T = [1]T{0} ** S,
         pos: usize = 0,
 
-        pub fn eval(self: *@This(), input: Tuple(&Input)) Tuple(&Output) {
+        pub inline fn eval(self: *@This(), input: Tuple(&Input)) Tuple(&Output) {
             const v = self.mem[self.pos];
             self.mem[self.pos] = input[0];
             self.pos = (self.pos + 1) % S;
@@ -386,7 +386,7 @@ pub fn Delay(comptime T: type, comptime S: usize) type {
         mem: [S]T = [1]T{0} ** S,
         pos: usize = 0,
 
-        pub fn eval(self: *@This(), input: Tuple(&Input)) Tuple(&Output) {
+        pub inline fn eval(self: *@This(), input: Tuple(&Input)) Tuple(&Output) {
             // clamping length to S
             const length = @min(input[1], S);
             if (length == 0) {
@@ -428,7 +428,7 @@ pub fn Loop(
         mem: [S]T = data,
         pos: usize = 0,
 
-        pub fn eval(self: *@This(), input: Tuple(&Input)) Tuple(&Output) {
+        pub inline fn eval(self: *@This(), input: Tuple(&Input)) Tuple(&Output) {
             _ = input;
             const v = self.mem[self.pos];
             self.pos = (self.pos + 1) % S;
@@ -456,7 +456,7 @@ pub fn Sin() type {
         phase: f64 = 0,
 
         const Self = @This();
-        pub fn eval(self: *@This(), input: Tuple(&Input)) Tuple(&Output) {
+        pub inline fn eval(self: *@This(), input: Tuple(&Input)) Tuple(&Output) {
             const v = @sin(self.phase);
             const freq = input[0];
             const step = freq * std.math.tau * 1 / srate;
