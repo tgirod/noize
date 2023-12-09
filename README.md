@@ -53,3 +53,7 @@ There is something crazy cool to do with tuples.
 And now I can pass tuples from one eval call to the next. It is also possible to concat tuples together, and if I need to split them, I can use `inline for` to iterate over.
 
 Experiment is [here](./exp/tuple.zig), but this approach is so promising, integrating it in the main code is the next step.
+
+# Sat Dec  9 20:26:46 CET 2023
+
+The tuple experiment has been merged into the main codebase. Note that it raises a segfault at compile time with zig 0.11.0 but not with master.
