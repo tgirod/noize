@@ -130,6 +130,26 @@ test "seq" {
     try expectEqual(expected, output);
 }
 
+/// connect two nodes as a sequence
+pub fn SeqN(comptime Nodes: []const type) type {
+    return switch (Nodes.len) {
+        0 => @compileError("sequence at least two nodes"),
+        1 => Nodes[0],
+        2 => Seq(Nodes[0], Nodes[1]),
+        else => SeqN(
+            [_]type{Seq(Nodes[0], Nodes[1])} ++ Nodes[2..],
+        ),
+    };
+}
+
+test "seqN" {
+    const N = SeqN(&[_]type{ Id(u8), Id(u8), Id(u8) });
+    var n = N{};
+    const expected = Tuple(&N.Output){23};
+    const output = n.eval(.{23});
+    try expectEqual(expected, output);
+}
+
 /// combine two nodes in parallel
 pub fn Par(comptime A: type, comptime B: type) type {
     return struct {
