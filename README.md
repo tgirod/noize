@@ -22,7 +22,7 @@ Also, I guess it is possible to inline every eval function. I'm curious to see i
 
 - [ ] use libportaudio for audio
 - [ ] use liblo to expose OSC controls
-- [ ] Par and Seq with more than two nodes
+- [x] Par and Seq with more than two nodes
 - [ ] node inputs added as optionnals to the constructor
   - if the value is set, input is replaced with constant value
 - [x] delay line

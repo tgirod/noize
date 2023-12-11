@@ -181,6 +181,26 @@ test "par" {
     try expectEqual(expected, output);
 }
 
+/// connect two nodes as a sequence
+pub fn ParN(comptime Nodes: []const type) type {
+    return switch (Nodes.len) {
+        0 => @compileError("not enough nodes"),
+        1 => Nodes[0],
+        2 => Par(Nodes[0], Nodes[1]),
+        else => ParN(
+            [_]type{Par(Nodes[0], Nodes[1])} ++ Nodes[2..],
+        ),
+    };
+}
+
+test "parN" {
+    const N = ParN(&[_]type{ Id(u8), Id(u8), Id(u8) });
+    var n = N{};
+    const expected = Tuple(&N.Output){ 23, 42, 66 };
+    const output = n.eval(expected);
+    try expectEqual(expected, output);
+}
+
 /// takes a size S and a node type N, and duplicate N S times in parallel
 pub fn Dup(comptime N: type, comptime S: usize) type {
     return struct {
