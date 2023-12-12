@@ -1,110 +1,96 @@
 const std = @import("std");
 const n = @import("noize.zig");
 const c = @cImport({
-    @cInclude("portaudio.h");
+    @cInclude("jack/jack.h");
 });
 
 const Error = error{
-    NotInitialized,
-    UnanticipatedHostError,
-    InvalidChannelCount,
-    InvalidSampleRate,
-    InvalidDevice,
-    InvalidFlag,
-    SampleFormatNotSupported,
-    BadIODeviceCombination,
-    InsufficientMemory,
-    BufferTooBig,
-    BufferTooSmall,
-    NullCallback,
-    BadStreamPtr,
-    TimedOut,
-    InternalError,
-    DeviceUnavailable,
-    IncompatibleHostApiSpecificStreamInfo,
-    StreamIsStopped,
-    StreamIsNotStopped,
-    InputOverflowed,
-    OutputUnderflowed,
-    HostApiNotFound,
-    InvalidHostApi,
-    CanNotReadFromACallbackStream,
-    CanNotWriteToACallbackStream,
-    CanNotReadFromAnOutputOnlyStream,
-    CanNotWriteToAnInputOnlyStream,
-    IncompatibleStreamHostApi,
-    BadBufferPtr,
+    NoClient,
+    NoInputPort,
+    NoOutputPort,
+    CannotActivate,
+    CannotConnectInput,
+    CannotConnectOutput,
 };
 
-fn withErr(err: c.PaErrorCode) Error!void {
-    return switch (err) {
-        c.paNoError => return,
-        c.paNotInitialized => Error.NotInitialized,
-        c.paUnanticipatedHostError => Error.UnanticipatedHostError,
-        c.paInvalidChannelCount => Error.InvalidChannelCount,
-        c.paInvalidSampleRate => Error.InvalidSampleRate,
-        c.paInvalidDevice => Error.InvalidDevice,
-        c.paInvalidFlag => Error.InvalidFlag,
-        c.paSampleFormatNotSupported => Error.SampleFormatNotSupported,
-        c.paBadIODeviceCombination => Error.BadIODeviceCombination,
-        c.paInsufficientMemory => Error.InsufficientMemory,
-        c.paBufferTooBig => Error.BufferTooBig,
-        c.paBufferTooSmall => Error.BufferTooSmall,
-        c.paNullCallback => Error.NullCallback,
-        c.paBadStreamPtr => Error.BadStreamPtr,
-        c.paTimedOut => Error.TimedOut,
-        c.paInternalError => Error.InternalError,
-        c.paDeviceUnavailable => Error.DeviceUnavailable,
-        c.paIncompatibleHostApiSpecificStreamInfo => Error.IncompatibleHostApiSpecificStreamInfo,
-        c.paStreamIsStopped => Error.StreamIsStopped,
-        c.paStreamIsNotStopped => Error.StreamIsNotStopped,
-        c.paInputOverflowed => Error.InputOverflowed,
-        c.paOutputUnderflowed => Error.OutputUnderflowed,
-        c.paHostApiNotFound => Error.HostApiNotFound,
-        c.paInvalidHostApi => Error.InvalidHostApi,
-        c.paCanNotReadFromACallbackStream => Error.CanNotReadFromACallbackStream,
-        c.paCanNotWriteToACallbackStream => Error.CanNotWriteToACallbackStream,
-        c.paCanNotReadFromAnOutputOnlyStream => Error.CanNotReadFromAnOutputOnlyStream,
-        c.paCanNotWriteToAnInputOnlyStream => Error.CanNotWriteToAnInputOnlyStream,
-        c.paIncompatibleStreamHostApi => Error.IncompatibleStreamHostApi,
-        c.paBadBufferPtr => Error.BadBufferPtr,
-        else => @panic("unknown error code"),
-    };
+const Client = struct {
+    options: c.jack_options_t = c.JackNullOption,
+    status: c.jack_status_t = undefined,
+    client: *?c.jack_client_t = null,
+
+    fn init(name: []const u8, inputs: usize, outputs: usize) !Client {
+        _ = outputs;
+        _ = inputs;
+        _ = name;
+    }
+};
+
+pub fn main() !void {
+    const options = c.JackNullOption;
+    var status: c.jack_status_t = undefined;
+
+    // open client
+    const client = c.jack_client_open("noize", options, &status);
+    if (client == null) {
+        return Error.NoClient;
+    }
+    defer _ = c.jack_client_close(client);
+    _ = c.jack_set_process_callback(client, processCallback, null);
+    _ = c.jack_on_shutdown(client, shutdownCallback, null);
+
+    // register input and output ports
+    const input_port = c.jack_port_register(client, "input", c.JACK_DEFAULT_AUDIO_TYPE, c.JackPortIsInput, 0);
+    if (input_port == null) {
+        return Error.NoInputPort;
+    }
+    defer _ = c.jack_port_unregister(client, input_port);
+    const output_port = c.jack_port_register(client, "output", c.JACK_DEFAULT_AUDIO_TYPE, c.JackPortIsOutput, 0);
+    if (output_port == null) {
+        return Error.NoOutputPort;
+    }
+    defer _ = c.jack_port_unregister(client, output_port);
+
+    // activate the client
+    if (c.jack_activate(client) != 0) {
+        return Error.CannotActivate;
+    }
+    defer _ = c.jack_deactivate(client);
+
+    // attempt to connect to input and output ports
+    const input = c.jack_get_ports(client, "", "", c.JackPortIsPhysical | c.JackPortIsOutput);
+
+    if (c.jack_connect(client, input[0], c.jack_port_name(input_port)) != 0) {
+        return Error.CannotConnectInput;
+    }
+
+    const output = c.jack_get_ports(client, "", "", c.JackPortIsPhysical | c.JackPortIsInput);
+    if (output == null) {
+        return Error.NoOutputPort;
+    }
+    std.debug.print("{any}\n", .{@TypeOf(output)});
+    for (output) |o| {
+        std.debug.print("{any}\n", .{o});
+    }
+
+    if (c.jack_connect(client, output[0], c.jack_port_name(output_port)) != 0) {
+        return Error.CannotConnectOutput;
+    }
+
+    std.debug.print("sleeping\n", .{});
+    std.time.sleep(std.time.ns_per_s);
+    std.debug.print("waking up\n", .{});
 }
 
-const UserData = struct {};
-var data = UserData{};
-
-fn callback(
-    inputBuffer: ?*const anyopaque,
-    outputBuffer: ?*anyopaque,
-    framesPerBuffer: c_ulong,
-    timeInfo: [*c]const c.PaStreamCallbackTimeInfo,
-    statusFlags: c.PaStreamCallbackFlags,
-    userData: ?*anyopaque,
-) callconv(.C) c_int {
-    _ = userData;
-    _ = statusFlags;
-    _ = timeInfo;
-    _ = framesPerBuffer;
-    _ = outputBuffer;
-    _ = inputBuffer;
+fn processCallback(nframes: c.jack_nframes_t, arg: ?*anyopaque) callconv(.C) c_int {
+    std.debug.print("+", .{});
+    _ = arg;
+    _ = nframes;
     return 0;
 }
 
-pub fn main() !void {
-    const stream: [*c]?*c.PaStream = null;
-    try withErr(c.Pa_Initialize());
-    defer _ = c.Pa_Terminate();
-
-    try withErr(c.Pa_OpenDefaultStream(stream, 2, 2, c.paFloat32, 48000, 256, &callback, &data));
-    defer _ = c.Pa_CloseStream(stream.*);
-    std.debug.print("{any}\n", .{stream});
-
-    c.Pa_Sleep(2000);
-
-    try withErr(c.Pa_StartStream(stream.*));
-    defer _ = c.Pa_StopStream(stream);
+fn shutdownCallback(arg: ?*anyopaque) callconv(.C) void {
+    _ = arg;
+    std.os.exit(0);
 }
 
 // pub fn main() !void {
