@@ -1,94 +1,99 @@
 const std = @import("std");
+const testing = std.testing;
 const c = @cImport({
     @cInclude("jack/jack.h");
 });
 
-pub const Error = error{
-    ClientOpenFailed,
-    PortRegisterFailed,
-};
-
-// FIXME ugly hack
-const in_ports = [_][*c]const u8{ "in1", "in2", "in3", "in4", "in5", "in6", "in7", "in8" };
-const out_ports = [_][*c]const u8{ "out1", "out2", "out3", "out4", "out5", "out6", "out7", "out8" };
-
-pub const ProcessCallback = *const fn (nframes: u32, *Client) u32;
+pub const ProcessCallback = ?*const fn (c.jack_nframes_t, ?*anyopaque) callconv(.C) c_int;
 
 pub const Client = struct {
-    allo: std.mem.Allocator = undefined,
-    status: c.jack_status_t = undefined,
     client: ?*c.jack_client_t = undefined,
-    in_ports: []?*c.jack_port_t = undefined,
-    out_ports: []?*c.jack_port_t = undefined,
-    process: ProcessCallback = undefined,
+    status: c.jack_status_t = undefined,
 
-    const Self = @This();
+    /// open new jack client
+    pub fn init(name: [*]const u8) !Client {
+        var result = Client{};
+        result.client = c.jack_client_open(name, c.JackNullOption, &result.status) orelse null;
+        if (result.client == null) {
+            return error.CannotOpenClient;
+        }
 
-    fn processCallback(nframes: c.jack_nframes_t, arg: ?*anyopaque) c_int {
-        _ = arg;
-        _ = nframes;
+        return result;
     }
 
-    pub fn init(allo: std.mem.Allocator, name: [*c]const u8, input: usize, output: usize, process: ProcessCallback) !Self {
-        var client = Self{
-            .allo = allo,
-            .process = process,
-            .in_ports = try allo.alloc(?*c.jack_port_t, input),
-            .out_ports = try allo.alloc(?*c.jack_port_t, output),
+    /// close jack client
+    pub fn deinit(self: *Client) void {
+        _ = c.jack_client_close(self.client);
+    }
+
+    /// activate jack client
+    pub fn activate(self: *Client) !void {
+        if (c.jack_activate(self.client) != 0)
+            return error.CannotActivateClient;
+    }
+
+    /// deactivate jack client
+    pub fn deactivate(self: *Client) !void {
+        if (c.jack_deactivate(self.client) != 0)
+            return error.CannotDeactivateClient;
+    }
+
+    pub fn setProcessCallback(self: *Client, cb: ProcessCallback) !void {
+        if (c.jack_set_process_callback(self.client, cb, null) != 0) {
+            return error.CannotSetCallback;
+        }
+    }
+
+    /// register new input audio port
+    pub fn inputAudioPort(self: *Client, name: [*]const u8) !Port {
+        return Port.init(self, name, .AudioInput);
+    }
+
+    /// register new output audio port
+    pub fn outputAudioPort(self: *Client, name: [*]const u8) !Port {
+        return Port.init(self, name, .AudioOutput);
+    }
+};
+
+pub const PortType = enum {
+    AudioInput,
+    AudioOutput,
+    MidiInput,
+    MidiOutput,
+};
+
+pub const Port = struct {
+    client: ?*c.jack_client_t,
+    port: ?*c.jack_port_t,
+
+    pub fn init(client: *Client, name: [*]const u8, portType: PortType) !Port {
+        const _type = switch (portType) {
+            .AudioInput, .AudioOutput => c.JACK_DEFAULT_AUDIO_TYPE,
+            .MidiInput, .MidiOutput => c.JACK_DEFAULT_MIDI_TYPE,
         };
-        errdefer allo.free(client.in_ports);
-        errdefer allo.free(client.out_ports);
 
-        // open client
-        client.client = c.jack_client_open(name, c.JackNullOption, &client.status);
-        if (client.client == null) {
-            return Error.ClientOpenFailed;
-        }
-        errdefer _ = c.jack_client_close(client.client); // FIXME
+        const flag: c_ulong = switch (portType) {
+            .AudioInput, .MidiInput => c.JackPortIsInput,
+            .AudioOutput, .MidiOutput => c.JackPortIsOutput,
+        };
 
-        // open input ports
-        const in = client.in_ports;
-        for (0..in.len) |i| {
-            in[i] = c.jack_port_register(client.client, in_ports[i], c.JACK_DEFAULT_AUDIO_TYPE, c.JackPortIsInput, 0) orelse null;
-            if (in[i] == null) {
-                return Error.PortRegisterFailed;
-            }
-            errdefer c.jack_port_unregister(client.client, in[i]);
+        const port = c.jack_port_register(client.client, name, _type, flag, 0) orelse null;
+        if (port == null) {
+            return error.CannotRegisterPort;
         }
 
-        // open output ports
-        const out = client.out_ports;
-        for (0..out.len) |i| {
-            out[i] = c.jack_port_register(client.client, out_ports[i], c.JACK_DEFAULT_AUDIO_TYPE, c.JackPortIsOutput, 0) orelse null;
-            if (out[i] == null) {
-                return Error.PortRegisterFailed;
-            }
-            errdefer c.jack_port_unregister(client.client, out[i]);
-        }
-
-        // registrer process callback
-        _ = c.jack_set_process_callback(client.client, &client.processCallback, &client); // FIXME
-
-        return client;
+        return Port{
+            .client = client.client,
+            .port = port,
+        };
     }
 
-    pub fn deinit(self: *Self) void {
-        for (self.in_ports) |p| {
-            _ = c.jack_port_unregister(self.client, p); // FIXME
-        }
-        for (self.out_ports) |p| {
-            _ = c.jack_port_unregister(self.client, p); // FIXME
-        }
-        _ = c.jack_client_close(self.client); // FIXME
-        self.allo.free(self.in_ports);
-        self.allo.free(self.out_ports);
+    pub fn deinit(self: *Port) void {
+        _ = c.jack_port_unregister(self.client, self.port);
     }
 
-    pub fn activate(self: *Self) void {
-        _ = c.jack_activate(self.client); // FIXME
-    }
-
-    pub fn deactivate(self: *Self) void {
-        _ = c.jack_deactivate(self.client); // FIXME
+    pub fn getBuffer(self: *Port, nframes: u32) []f32 {
+        const buf = c.jack_port_get_buffer(self.port, nframes);
+        return @as([*]f32, @ptrCast(@alignCast(buf)))[0..nframes];
     }
 };

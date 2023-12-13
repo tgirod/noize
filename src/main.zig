@@ -2,24 +2,31 @@ const std = @import("std");
 const n = @import("noize.zig");
 const jack = @import("jack.zig");
 
-pub fn main() !void {
-    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
-    const allocator = gpa.allocator();
-    var client = try jack.Client.init(allocator, "noize", 2, 1, processCallback);
+var client: jack.Client = undefined;
+var out: jack.Port = undefined;
 
-    client.activate();
-    defer client.deactivate();
+pub fn main() !void {
+    client = try jack.Client.init("noize");
+    defer client.deinit();
+
+    try client.setProcessCallback(&processCallback);
+
+    out = try client.outputAudioPort("out");
+    defer out.deinit();
+
+    try client.activate();
 
     std.debug.print("sleeping\n", .{});
     std.time.sleep(std.time.ns_per_s);
     std.debug.print("\nwaking up\n", .{});
+
+    try client.deactivate();
 }
 
-fn processCallback(nframes: u32, arg: *jack.Client) callconv(.C) c_int {
+fn processCallback(nframes: u32, arg: ?*anyopaque) callconv(.C) c_int {
     _ = arg;
-    // const client: *Client = @ptrCast(@alignCast(arg));
-    // _ = client;
-    std.debug.print("{any}\n", .{nframes});
+    const buf = out.getBuffer(nframes);
+    std.debug.print("{any}\n", .{buf});
     return 0;
 }
 
