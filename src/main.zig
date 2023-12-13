@@ -5,92 +5,112 @@ const c = @cImport({
 });
 
 const Error = error{
-    NoClient,
-    NoInputPort,
-    NoOutputPort,
-    CannotActivate,
-    CannotConnectInput,
-    CannotConnectOutput,
+    ClientOpenFailed,
+    PortRegisterFailed,
 };
 
-const Client = struct {
-    options: c.jack_options_t = c.JackNullOption,
-    status: c.jack_status_t = undefined,
-    client: *?c.jack_client_t = null,
+// FIXME ugly hack
+const in_ports = [_][*c]const u8{ "in1", "in2", "in3", "in4", "in5", "in6", "in7", "in8" };
+const out_ports = [_][*c]const u8{ "out1", "out2", "out3", "out4", "out5", "out6", "out7", "out8" };
 
-    fn init(name: []const u8, inputs: usize, outputs: usize) !Client {
-        _ = outputs;
-        _ = inputs;
-        _ = name;
+// type signature of jack process callback
+pub const ProcessCallback = c.JackProcessCallback;
+
+// pub fn Client(comptime inputs: usize, comptime outputs: usize) type {
+
+pub const Client = struct {
+    allo: std.mem.Allocator = undefined,
+    status: c.jack_status_t = undefined,
+    client: ?*c.jack_client_t = undefined,
+    in_ports: []?*c.jack_port_t = undefined,
+    out_ports: []?*c.jack_port_t = undefined,
+    process: ProcessCallback = undefined,
+
+    const Self = @This();
+
+    fn init(allo: std.mem.Allocator, name: [*c]const u8, input: usize, output: usize, process: ProcessCallback) !Self {
+        var client = Self{
+            .allo = allo,
+            .process = process,
+            .in_ports = try allo.alloc(?*c.jack_port_t, input),
+            .out_ports = try allo.alloc(?*c.jack_port_t, output),
+        };
+        errdefer allo.free(client.in_ports);
+        errdefer allo.free(client.out_ports);
+
+        // open client
+        client.client = c.jack_client_open(name, c.JackNullOption, &client.status);
+        if (client.client == null) {
+            return Error.ClientOpenFailed;
+        }
+        errdefer _ = c.jack_client_close(client.client); // FIXME
+
+        // open input ports
+        const in = client.in_ports;
+        for (0..in.len) |i| {
+            in[i] = c.jack_port_register(client.client, in_ports[i], c.JACK_DEFAULT_AUDIO_TYPE, c.JackPortIsInput, 0) orelse null;
+            if (in[i] == null) {
+                return Error.PortRegisterFailed;
+            }
+            errdefer c.jack_port_unregister(client.client, in[i]);
+        }
+
+        // open output ports
+        const out = client.out_ports;
+        for (0..out.len) |i| {
+            out[i] = c.jack_port_register(client.client, out_ports[i], c.JACK_DEFAULT_AUDIO_TYPE, c.JackPortIsOutput, 0) orelse null;
+            if (out[i] == null) {
+                return Error.PortRegisterFailed;
+            }
+            errdefer c.jack_port_unregister(client.client, out[i]);
+        }
+
+        // registrer process callback
+        _ = c.jack_set_process_callback(client.client, client.process, &client); // FIXME
+
+        return client;
+    }
+
+    fn deinit(self: *Self) void {
+        for (self.in_ports) |p| {
+            _ = c.jack_port_unregister(self.client, p); // FIXME
+        }
+        for (self.out_ports) |p| {
+            _ = c.jack_port_unregister(self.client, p); // FIXME
+        }
+        _ = c.jack_client_close(self.client); // FIXME
+        self.allo.free(self.in_ports);
+        self.allo.free(self.out_ports);
+    }
+
+    fn activate(self: *Self) void {
+        _ = c.jack_activate(self.client); // FIXME
+    }
+
+    fn deactivate(self: *Self) void {
+        _ = c.jack_deactivate(self.client); // FIXME
     }
 };
 
 pub fn main() !void {
-    const options = c.JackNullOption;
-    var status: c.jack_status_t = undefined;
+    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    const allocator = gpa.allocator();
+    var client = try Client.init(allocator, "noize", 2, 1, processCallback);
 
-    // open client
-    const client = c.jack_client_open("noize", options, &status);
-    if (client == null) {
-        return Error.NoClient;
-    }
-    defer _ = c.jack_client_close(client);
-    _ = c.jack_set_process_callback(client, processCallback, null);
-    _ = c.jack_on_shutdown(client, shutdownCallback, null);
-
-    // register input and output ports
-    const input_port = c.jack_port_register(client, "input", c.JACK_DEFAULT_AUDIO_TYPE, c.JackPortIsInput, 0);
-    if (input_port == null) {
-        return Error.NoInputPort;
-    }
-    defer _ = c.jack_port_unregister(client, input_port);
-    const output_port = c.jack_port_register(client, "output", c.JACK_DEFAULT_AUDIO_TYPE, c.JackPortIsOutput, 0);
-    if (output_port == null) {
-        return Error.NoOutputPort;
-    }
-    defer _ = c.jack_port_unregister(client, output_port);
-
-    // activate the client
-    if (c.jack_activate(client) != 0) {
-        return Error.CannotActivate;
-    }
-    defer _ = c.jack_deactivate(client);
-
-    // attempt to connect to input and output ports
-    const input = c.jack_get_ports(client, "", "", c.JackPortIsPhysical | c.JackPortIsOutput);
-
-    if (c.jack_connect(client, input[0], c.jack_port_name(input_port)) != 0) {
-        return Error.CannotConnectInput;
-    }
-
-    const output = c.jack_get_ports(client, "", "", c.JackPortIsPhysical | c.JackPortIsInput);
-    if (output == null) {
-        return Error.NoOutputPort;
-    }
-    std.debug.print("{any}\n", .{@TypeOf(output)});
-    for (output) |o| {
-        std.debug.print("{any}\n", .{o});
-    }
-
-    if (c.jack_connect(client, output[0], c.jack_port_name(output_port)) != 0) {
-        return Error.CannotConnectOutput;
-    }
+    client.activate();
+    defer client.deactivate();
 
     std.debug.print("sleeping\n", .{});
     std.time.sleep(std.time.ns_per_s);
-    std.debug.print("waking up\n", .{});
+    std.debug.print("\nwaking up\n", .{});
 }
 
 fn processCallback(nframes: c.jack_nframes_t, arg: ?*anyopaque) callconv(.C) c_int {
-    std.debug.print("+", .{});
-    _ = arg;
-    _ = nframes;
-    return 0;
-}
+    const client: *Client = @ptrCast(@alignCast(arg));
+    _ = client;
+    std.debug.print("{any}\n", .{nframes});
 
-fn shutdownCallback(arg: ?*anyopaque) callconv(.C) void {
-    _ = arg;
-    std.os.exit(0);
+    return 0;
 }
 
 // pub fn main() !void {
