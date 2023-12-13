@@ -59,3 +59,9 @@ Experiment is [here](./exp/tuple.zig), but this approach is so promising, integr
 # Sat Dec  9 20:26:46 CET 2023
 
 The tuple experiment has been merged into the main codebase. Note that it raises a segfault at compile time with zig 0.11.0 but not with master.
+
+# Wed Dec 13 09:14:43 CET 2023
+
+Interfacing with C is not easy. I'm almost there with jack - registering a client, opening input and output ports, running a process callback - but the C API is leaking everywhere.
+
+So in the end I'm writing jack bindings - but I guess someone already did the work ? I've just found https://machengine.org/pkg/mach-sysaudio/ and it looks like I could use that ...
