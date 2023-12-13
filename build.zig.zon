@@ -15,10 +15,6 @@
     // Once all dependencies are fetched, `zig build` no longer requires
     // Internet connectivity.
     .dependencies = .{
-        .@"mach-sysaudio" = .{
-            .url = "https://pkg.machengine.org/mach-sysaudio/7736b88a31cfc9eb59cde3f97d76658eeaa81dd2.tar.gz",
-            .hash = "1220e298a52bb47dfb17ca01db57e0432da7968b38fcb92922145377560d76b6eada",
-        },
     },
     .paths = .{
         // This makes *all* files, recursively, included in this package. It is generally

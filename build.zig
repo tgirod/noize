@@ -36,13 +36,6 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
     });
 
-    const mach_sysaudio_dep = b.dependency("mach-sysaudio", .{
-        .target = target,
-        .optimize = optimize,
-    });
-    exe.addModule("mach-sysaudio", mach_sysaudio_dep.module("mach-sysaudio"));
-    @import("mach-sysaudio").link(mach_sysaudio_dep.builder, exe);
-
     // This declares intent for the executable to be installed into the
     // standard location when the user invokes the "install" step (the default
     // step when running `zig build`).
