@@ -5,6 +5,8 @@ const jack = @import("jack.zig");
 var client: jack.Client = undefined;
 var out: jack.Port = undefined;
 
+const step = @as(f32, 1.0 / 48000.0);
+
 pub fn main() !void {
     client = try jack.Client.init("noize");
     defer client.deinit();
@@ -29,13 +31,3 @@ fn processCallback(nframes: u32, arg: ?*anyopaque) callconv(.C) c_int {
     std.debug.print("{any}\n", .{buf});
     return 0;
 }
-
-// pub fn main() !void {
-//     const Node = n.Sin();
-//     var node = Node{};
-
-//     for (0..480) |i| {
-//         const out = node.eval(.{@as(f64, @floatFromInt(i)) * 10});
-//         std.debug.print("{any}\n", .{out[0]});
-//     }
-// }
