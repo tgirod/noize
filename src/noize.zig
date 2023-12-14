@@ -497,10 +497,10 @@ test "loop" {
 /// sinewave at the given frequency
 pub fn Sin() type {
     return struct {
-        pub const Input = [1]type{f64};
-        pub const Output = [1]type{f64};
+        pub const Input = [1]type{f32};
+        pub const Output = [1]type{f32};
 
-        phase: f64 = 0,
+        phase: f32 = 0,
 
         const Self = @This();
         pub inline fn eval(self: *@This(), step: f32, input: Tuple(&Input)) Tuple(&Output) {

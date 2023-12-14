@@ -65,3 +65,7 @@ The tuple experiment has been merged into the main codebase. Note that it raises
 Interfacing with C is not easy. I'm almost there with jack - registering a client, opening input and output ports, running a process callback - but the C API is leaking everywhere.
 
 So in the end I'm writing jack bindings - but I guess someone already did the work ? I've just found https://machengine.org/pkg/mach-sysaudio/ and it looks like I could use that ...
+
+# Thu Dec 14 07:10:22 CET 2023
+
+It's alive! the jack backend is working!

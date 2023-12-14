@@ -53,6 +53,11 @@ pub const Client = struct {
     pub fn outputAudioPort(self: *Client, name: [*]const u8) !Port {
         return Port.init(self, name, .AudioOutput);
     }
+
+    /// return samplerate
+    pub fn getSampleRate(self: *Client) u32 {
+        return c.jack_get_sample_rate(self.client);
+    }
 };
 
 pub const PortType = enum {
