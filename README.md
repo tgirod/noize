@@ -20,29 +20,34 @@ Also, I guess it is possible to inline every eval function. I'm curious to see i
 
 # TODO
 
-- [ ] use libportaudio for audio
+- [ ] methods to generate mermaid flowchart code
+- [ ] turn jack client into a backend type
+  - take a Node type as parameter
+  - adapt the number of inputs/outputs based on Node
+  - auto-connect with hardware ports
 - [ ] use liblo to expose OSC controls (use a node to define osc endpoint)
-- [x] Par and Seq with more than two nodes
 - [ ] node inputs added as optionnals to the constructor
   - if the value is set, input is replaced with constant value
-- [x] delay line
-- [x] delay line with parametric length
-- [x] buffer to read values
 - [ ] wavetable (PORT FROM PREVIOUS VERSION)
   - initialize with a size and a generator function
   - generator function fills array from 0 to 1
   - interpolation function
+- [ ] turn the project back to a library rather than exe
+- [ ] #someday parallelism : noize builds a tree of nodes - it would probably be possible to evaluate children in parallel.
+- [ ] #someday SIMD : audio servers usually ask for a sampleframe, not a sample individually. Turning those sampleframes into vectors and using SIMD instructions to process them all at once could be interesting.
+- [x] use ~libportaudio~ jack for audio
+- [x] Par and Seq with more than two nodes
+- [x] delay line
+- [x] delay line with parametric length
+- [x] buffer to read values
 - [x] sinewave oscillator
 - [x] sample rate (hardcoded)
 - [x] add tests everywhere
   - how do I make sure the tests in noize.zig are run ?
-- [ ] turn the project back to a library rather than exe
 - [x] more than one kind of data passing around nodes : it would make sense to pass around integers or booleans, maybe even optional types to represent event based transmissions
 - [x] use comptime for the greater good
   - typechecking inputs and outputs ?
   - cool optimizations ?
-- [ ] #someday parallelism : noize builds a tree of nodes - it would probably be possible to evaluate children in parallel.
-- [ ] #someday SIMD : audio servers usually ask for a sampleframe, not a sample individually. Turning those sampleframes into vectors and using SIMD instructions to process them all at once could be interesting.
 
 # Fri Dec  8 22:17:47 CET 2023
 
