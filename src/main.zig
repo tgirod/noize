@@ -7,38 +7,39 @@ var out: jack.Port = undefined;
 var step: f32 = undefined;
 
 pub fn main() !void {
-    client = try jack.Client.init("noize");
+    client = try jack.Client.init(std.heap.page_allocator, "noize");
     defer client.deinit();
 
     step = 1 / @as(f32, @floatFromInt(client.getSampleRate()));
 
     try client.setProcessCallback(&processCallback);
 
-    out = try client.outputAudioPort("out");
-    defer out.deinit();
-
+    try client.registerPort("out", .AudioOutput);
     try client.activate();
+    defer client.deactivate() catch {};
+
+    try client.connect();
 
     std.debug.print("sleeping\n", .{});
-    std.time.sleep(10 * std.time.ns_per_s);
+    std.time.sleep(5 * std.time.ns_per_s);
     std.debug.print("\nwaking up\n", .{});
-
-    try client.deactivate();
 }
 
 const Node = n.SeqN(&[_]type{
-    n.Par(n.Const(f32, 440), n.Const(f32, 800)),
     n.Dup(n.Sin(), 2),
     n.Add(f32),
 });
 
 var node = Node{};
 
+var now: f32 = 0;
+
 fn processCallback(nframes: u32, arg: ?*anyopaque) callconv(.C) c_int {
     _ = arg;
-    const buf = out.getBuffer(nframes);
+    const buf = client.outputBuffer(0, nframes);
     for (buf) |*i| {
-        i.* = node.eval(step, .{})[0];
+        i.* = node.eval(step, .{ 400 + now * 10, 400 + now * 15 })[0];
+        now += step;
     }
     return 0;
 }

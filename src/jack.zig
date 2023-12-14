@@ -6,24 +6,47 @@ const c = @cImport({
 
 pub const ProcessCallback = ?*const fn (c.jack_nframes_t, ?*anyopaque) callconv(.C) c_int;
 
+pub const PortType = enum(c_ulong) {
+    AudioInput = c.JackPortIsInput,
+    AudioOutput = c.JackPortIsOutput,
+};
+
 pub const Client = struct {
     client: ?*c.jack_client_t = undefined,
     status: c.jack_status_t = undefined,
+    inputs: std.ArrayList(?*c.jack_port_t) = undefined,
+    outputs: std.ArrayList(?*c.jack_port_t) = undefined,
 
     /// open new jack client
-    pub fn init(name: [*]const u8) !Client {
+    pub fn init(allo: std.mem.Allocator, name: [*]const u8) !Client {
         var result = Client{};
         result.client = c.jack_client_open(name, c.JackNullOption, &result.status) orelse null;
         if (result.client == null) {
             return error.CannotOpenClient;
         }
-
+        result.inputs = std.ArrayList(?*c.jack_port_t).init(allo);
+        result.outputs = std.ArrayList(?*c.jack_port_t).init(allo);
         return result;
     }
 
     /// close jack client
     pub fn deinit(self: *Client) void {
+        for (self.inputs.items) |p| {
+            _ = c.jack_port_unregister(self.client, p);
+        }
+        self.inputs.deinit();
+
+        for (self.outputs.items) |p| {
+            _ = c.jack_port_unregister(self.client, p);
+        }
+        self.outputs.deinit();
+
         _ = c.jack_client_close(self.client);
+    }
+
+    /// return samplerate
+    pub fn getSampleRate(self: *Client) u32 {
+        return c.jack_get_sample_rate(self.client);
     }
 
     /// activate jack client
@@ -44,61 +67,50 @@ pub const Client = struct {
         }
     }
 
-    /// register new input audio port
-    pub fn inputAudioPort(self: *Client, name: [*]const u8) !Port {
-        return Port.init(self, name, .AudioInput);
-    }
-
-    /// register new output audio port
-    pub fn outputAudioPort(self: *Client, name: [*]const u8) !Port {
-        return Port.init(self, name, .AudioOutput);
-    }
-
-    /// return samplerate
-    pub fn getSampleRate(self: *Client) u32 {
-        return c.jack_get_sample_rate(self.client);
-    }
-};
-
-pub const PortType = enum {
-    AudioInput,
-    AudioOutput,
-    MidiInput,
-    MidiOutput,
-};
-
-pub const Port = struct {
-    client: ?*c.jack_client_t,
-    port: ?*c.jack_port_t,
-
-    pub fn init(client: *Client, name: [*]const u8, portType: PortType) !Port {
-        const _type = switch (portType) {
-            .AudioInput, .AudioOutput => c.JACK_DEFAULT_AUDIO_TYPE,
-            .MidiInput, .MidiOutput => c.JACK_DEFAULT_MIDI_TYPE,
-        };
-
-        const flag: c_ulong = switch (portType) {
-            .AudioInput, .MidiInput => c.JackPortIsInput,
-            .AudioOutput, .MidiOutput => c.JackPortIsOutput,
-        };
-
-        const port = c.jack_port_register(client.client, name, _type, flag, 0) orelse null;
+    pub fn registerPort(self: *Client, name: [*]const u8, portType: PortType) !void {
+        const port = c.jack_port_register(self.client, name, c.JACK_DEFAULT_AUDIO_TYPE, @intFromEnum(portType), 0) orelse null;
         if (port == null) {
             return error.CannotRegisterPort;
         }
 
-        return Port{
-            .client = client.client,
-            .port = port,
+        _ = switch (portType) {
+            .AudioInput => try self.inputs.append(port),
+            .AudioOutput => try self.outputs.append(port),
         };
     }
 
-    pub fn deinit(self: *Port) void {
-        _ = c.jack_port_unregister(self.client, self.port);
+    /// connect ports to default physical inputs and outputs
+    pub fn connect(self: *Client) !void {
+        const sources = c.jack_get_ports(self.client, "", "", c.JackPortIsPhysical | c.JackPortIsOutput);
+        var index: usize = 0;
+        while (index < self.inputs.items.len and sources[index] != 0) {
+            const source = sources[index];
+            const target = c.jack_port_name(self.inputs.items[index]);
+            if (c.jack_connect(self.client, source, target) != 0) {
+                return error.CannotConnect;
+            }
+            index += 1;
+        }
+
+        const targets = c.jack_get_ports(self.client, "", "", c.JackPortIsPhysical | c.JackPortIsInput);
+        index = 0;
+        while (index < self.outputs.items.len and targets[index] != 0) {
+            const source = c.jack_port_name(self.outputs.items[index]);
+            const target = targets[index];
+            if (c.jack_connect(self.client, source, target) != 0) {
+                return error.CannotConnect;
+            }
+            index += 1;
+        }
     }
 
-    pub fn getBuffer(self: *Port, nframes: u32) []f32 {
-        const buf = c.jack_port_get_buffer(self.port, nframes);
+    pub fn inputBuffer(self: *Client, index: usize, nframes: u32) []f32 {
+        const buf = c.jack_port_get_buffer(self.inputs.items[index], nframes);
+        return @as([*]f32, @ptrCast(@alignCast(buf)))[0..nframes];
+    }
+
+    pub fn outputBuffer(self: *Client, index: usize, nframes: u32) []f32 {
+        const buf = c.jack_port_get_buffer(self.outputs.items[index], nframes);
         return @as([*]f32, @ptrCast(@alignCast(buf)))[0..nframes];
     }
 };
