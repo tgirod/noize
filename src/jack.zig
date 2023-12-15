@@ -81,9 +81,9 @@ pub const Client = struct {
 
     /// connect ports to default physical inputs and outputs
     pub fn connect(self: *Client) !void {
-        const sources = c.jack_get_ports(self.client, "", "", c.JackPortIsPhysical | c.JackPortIsOutput);
+        const sources: [*:null]?[*:0]const u8 = c.jack_get_ports(self.client, "", "", c.JackPortIsPhysical | c.JackPortIsOutput);
         var index: usize = 0;
-        while (index < self.inputs.items.len and sources[index] != 0) {
+        while (index < self.inputs.items.len and sources[index] != null) {
             const source = sources[index];
             const target = c.jack_port_name(self.inputs.items[index]);
             if (c.jack_connect(self.client, source, target) != 0) {
@@ -94,7 +94,7 @@ pub const Client = struct {
 
         const targets = c.jack_get_ports(self.client, "", "", c.JackPortIsPhysical | c.JackPortIsInput);
         index = 0;
-        while (index < self.outputs.items.len and targets[index] != 0) {
+        while (index < self.outputs.items.len and targets[index] != null) {
             const source = c.jack_port_name(self.outputs.items[index]);
             const target = targets[index];
             if (c.jack_connect(self.client, source, target) != 0) {
