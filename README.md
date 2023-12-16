@@ -74,3 +74,11 @@ So in the end I'm writing jack bindings - but I guess someone already did the wo
 # Thu Dec 14 07:10:22 CET 2023
 
 It's alive! the jack backend is working!
+
+# Fri Dec 15 15:33:22 CET 2023
+
+Experimenting with @Vector. Audio backends are usually asking for samples in frames. Passing vector types as inputs and outputs and adapting the code accordingly would allow to process a whole frame at once and make good use of the SIMD capabilities of the processor.
+
+But to define a vector, I have to know its length at comptime. It means I would need info such as frame size and sample rate defined at comptime, but those informations are usually gathered at runtime (at least for jack).
+
+Also : so far, Sin is the only node that stores a variable internal state (its phase). This information led me to add a `step` parameter to the `eval` method, in order to pass this information around. Is it the right approach ?
