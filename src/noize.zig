@@ -20,11 +20,25 @@ pub fn init(srate: u32) void {
 pub fn Noize(comptime N: type) type {
     return struct {
         node: N = N{}, // root node
-        in: Tuple(&N.Input),
-        out: Tuple(&N.Output),
 
-        pub inline fn eval(self: *@This()) void {
-            self.out = self.eval(step, self.in);
+        pub inline fn eval(
+            self: *@This(),
+            nframes: usize,
+            input_buffers: [N.Input.len][]f32,
+            output_buffers: [N.Output.len][]f32,
+        ) void {
+            const Input = Tuple(&N.Input);
+            const Output = Tuple(&N.Output);
+            for (0..nframes) |i| {
+                var input: Input = undefined;
+                inline for (0..N.Input.len) |j| {
+                    input[j] = input_buffers[j][i];
+                }
+                const output: Output = self.node.eval(input);
+                inline for (0..N.Output.len) |j| {
+                    output_buffers[j][i] = output[j];
+                }
+            }
         }
     };
 }

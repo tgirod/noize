@@ -11,106 +11,118 @@ pub const PortType = enum(c_ulong) {
     AudioOutput = c.JackPortIsOutput,
 };
 
-pub const Client = struct {
-    client: ?*c.jack_client_t = undefined,
-    status: c.jack_status_t = undefined,
-    inputs: std.ArrayList(?*c.jack_port_t) = undefined,
-    outputs: std.ArrayList(?*c.jack_port_t) = undefined,
+pub fn Client(comptime I: usize, comptime O: usize) type {
+    comptime var input_names: [I][*]const u8 = undefined;
+    inline for (0..I) |i|
+        input_names[i] = std.fmt.comptimePrint("in{d}", .{i});
 
-    /// open new jack client
-    pub fn init(allo: std.mem.Allocator, name: [*]const u8) !Client {
-        var result = Client{};
-        result.client = c.jack_client_open(name, c.JackNullOption, &result.status) orelse null;
-        if (result.client == null) {
-            return error.CannotOpenClient;
-        }
-        result.inputs = std.ArrayList(?*c.jack_port_t).init(allo);
-        result.outputs = std.ArrayList(?*c.jack_port_t).init(allo);
-        return result;
-    }
+    comptime var output_names: [O][*]const u8 = undefined;
+    inline for (0..O) |i|
+        output_names[i] = std.fmt.comptimePrint("out{d}", .{i});
 
-    /// close jack client
-    pub fn deinit(self: *Client) void {
-        for (self.inputs.items) |p| {
-            _ = c.jack_port_unregister(self.client, p);
-        }
-        self.inputs.deinit();
+    return struct {
+        client: ?*c.jack_client_t = undefined,
+        status: c.jack_status_t = undefined,
+        inputs: [I]?*c.jack_port_t = undefined,
+        outputs: [O]?*c.jack_port_t = undefined,
 
-        for (self.outputs.items) |p| {
-            _ = c.jack_port_unregister(self.client, p);
-        }
-        self.outputs.deinit();
+        const Self = @This();
 
-        _ = c.jack_client_close(self.client);
-    }
-
-    /// return samplerate
-    pub fn getSampleRate(self: *Client) u32 {
-        return c.jack_get_sample_rate(self.client);
-    }
-
-    /// activate jack client
-    pub fn activate(self: *Client) !void {
-        if (c.jack_activate(self.client) != 0)
-            return error.CannotActivateClient;
-    }
-
-    /// deactivate jack client
-    pub fn deactivate(self: *Client) !void {
-        if (c.jack_deactivate(self.client) != 0)
-            return error.CannotDeactivateClient;
-    }
-
-    pub fn setProcessCallback(self: *Client, cb: ProcessCallback) !void {
-        if (c.jack_set_process_callback(self.client, cb, null) != 0) {
-            return error.CannotSetCallback;
-        }
-    }
-
-    pub fn registerPort(self: *Client, name: [*]const u8, portType: PortType) !void {
-        const port = c.jack_port_register(self.client, name, c.JACK_DEFAULT_AUDIO_TYPE, @intFromEnum(portType), 0) orelse null;
-        if (port == null) {
-            return error.CannotRegisterPort;
-        }
-
-        _ = switch (portType) {
-            .AudioInput => try self.inputs.append(port),
-            .AudioOutput => try self.outputs.append(port),
-        };
-    }
-
-    /// connect ports to default physical inputs and outputs
-    pub fn connect(self: *Client) !void {
-        const sources: [*:null]?[*:0]const u8 = c.jack_get_ports(self.client, "", "", c.JackPortIsPhysical | c.JackPortIsOutput);
-        var index: usize = 0;
-        while (index < self.inputs.items.len and sources[index] != null) {
-            const source = sources[index];
-            const target = c.jack_port_name(self.inputs.items[index]);
-            if (c.jack_connect(self.client, source, target) != 0) {
-                return error.CannotConnect;
+        /// open new jack client
+        pub fn init(self: *Self, name: [*]const u8, cb: ProcessCallback) !void {
+            self.client = c.jack_client_open(name, c.JackNullOption, &self.status) orelse null;
+            if (self.client == null) {
+                return error.CannotOpenClient;
             }
-            index += 1;
-        }
 
-        const targets = c.jack_get_ports(self.client, "", "", c.JackPortIsPhysical | c.JackPortIsInput);
-        index = 0;
-        while (index < self.outputs.items.len and targets[index] != null) {
-            const source = c.jack_port_name(self.outputs.items[index]);
-            const target = targets[index];
-            if (c.jack_connect(self.client, source, target) != 0) {
-                return error.CannotConnect;
+            // register input ports
+            for (0..I) |i| {
+                self.inputs[i] = c.jack_port_register(self.client, input_names[i], c.JACK_DEFAULT_AUDIO_TYPE, c.JackPortIsInput, 0) orelse null;
+                if (self.inputs[i] == null) return error.CannotRegisterPort;
             }
-            index += 1;
+
+            // register output ports
+            for (0..I) |i| {
+                self.outputs[i] = c.jack_port_register(self.client, output_names[i], c.JACK_DEFAULT_AUDIO_TYPE, c.JackPortIsOutput, 0) orelse null;
+                if (self.outputs[i] == null) return error.CannotRegisterPort;
+            }
+
+            if (c.jack_set_process_callback(self.client, cb, null) != 0) {
+                return error.CannotSetCallback;
+            }
         }
-    }
 
-    pub fn inputBuffer(self: *Client, index: usize, nframes: u32) []f32 {
-        const buf = c.jack_port_get_buffer(self.inputs.items[index], nframes);
-        return @as([*]f32, @ptrCast(@alignCast(buf)))[0..nframes];
-    }
+        /// close jack client
+        pub fn deinit(self: *Self) void {
+            for (self.inputs) |p| {
+                _ = c.jack_port_unregister(self.client, p);
+            }
 
-    pub fn outputBuffer(self: *Client, index: usize, nframes: u32) []f32 {
-        const buf = c.jack_port_get_buffer(self.outputs.items[index], nframes);
-        return @as([*]f32, @ptrCast(@alignCast(buf)))[0..nframes];
-    }
-};
+            for (self.outputs) |p| {
+                _ = c.jack_port_unregister(self.client, p);
+            }
+
+            _ = c.jack_client_close(self.client);
+        }
+
+        /// return samplerate
+        pub fn samplerate(self: *Self) u32 {
+            return c.jack_get_sample_rate(self.client);
+        }
+
+        /// activate jack client
+        pub fn activate(self: *Self) !void {
+            if (c.jack_activate(self.client) != 0)
+                return error.CannotActivateClient;
+        }
+
+        /// deactivate jack client
+        pub fn deactivate(self: *Self) !void {
+            if (c.jack_deactivate(self.client) != 0)
+                return error.CannotDeactivateClient;
+        }
+
+        /// connect ports to default physical inputs and outputs
+        pub fn connect(self: *Self) !void {
+            const sources: [*:null]?[*:0]const u8 = c.jack_get_ports(self.client, "", "", c.JackPortIsPhysical | c.JackPortIsOutput);
+            var index: usize = 0;
+            while (index < self.inputs.len and sources[index] != null) {
+                const source = sources[index];
+                const target = c.jack_port_name(self.inputs[index]);
+                if (c.jack_connect(self.client, source, target) != 0) {
+                    return error.CannotConnect;
+                }
+                index += 1;
+            }
+
+            const targets = c.jack_get_ports(self.client, "", "", c.JackPortIsPhysical | c.JackPortIsInput);
+            index = 0;
+            while (index < self.outputs.len and targets[index] != null) {
+                const source = c.jack_port_name(self.outputs[index]);
+                const target = targets[index];
+                if (c.jack_connect(self.client, source, target) != 0) {
+                    return error.CannotConnect;
+                }
+                index += 1;
+            }
+        }
+
+        pub fn inputBuffers(self: *Self, nframes: u32) [I][]f32 {
+            var bufs: [I][]f32 = undefined;
+            for (0..I) |i| {
+                const buf = c.jack_port_get_buffer(self.inputs[i], nframes);
+                bufs[i] = @as([*]f32, @ptrCast(@alignCast(buf)))[0..nframes];
+            }
+            return bufs;
+        }
+
+        pub fn outputBuffers(self: *Self, nframes: u32) [O][]f32 {
+            var bufs: [O][]f32 = undefined;
+            for (0..O) |i| {
+                const buf = c.jack_port_get_buffer(self.outputs[i], nframes);
+                bufs[i] = @as([*]f32, @ptrCast(@alignCast(buf)))[0..nframes];
+            }
+            return bufs;
+        }
+    };
+}
