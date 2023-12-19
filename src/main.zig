@@ -29,7 +29,7 @@ pub fn main() !void {
 const Lfo = n.SeqN(&[_]type{
     n.Const(f32, 0.2),
     n.Sin(),
-    n.MulAdd(f32, 20000, 20000),
+    n.Rescale(f32, -1, 1, 10, 48000),
     n.FloatToInt(f32, usize),
 });
 

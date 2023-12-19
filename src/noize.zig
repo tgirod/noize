@@ -113,6 +113,26 @@ pub fn MulAdd(comptime T: type, comptime mul: T, comptime add: T) type {
     };
 }
 
+pub fn Rescale(comptime T: type, comptime srcMin: T, comptime srcMax: T, comptime dstMin: T, comptime dstMax: T) type {
+    const srcAmp = srcMax - srcMin;
+    const dstAmp = dstMax - dstMin;
+    const mul = dstAmp / srcAmp;
+    const srcMid = (srcMin + srcMax) / 2;
+    const dstMid = (dstMin + dstMax) / 2;
+    const add = dstMid - srcMid;
+
+    return struct {
+        pub const Input = [1]type{T};
+        pub const Output = [1]type{T};
+
+        fn eval(self: *@This(), step: f32, input: Tuple(&Input)) Tuple(&Output) {
+            _ = step;
+            _ = self;
+            return .{@mulAdd(T, input[0], mul, add)};
+        }
+    };
+}
+
 /// connect two nodes as a sequence
 pub fn Seq(comptime A: type, comptime B: type) type {
     if (!std.mem.eql(type, &A.Output, &B.Input)) {
