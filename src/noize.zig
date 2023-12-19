@@ -6,17 +6,8 @@ const expectEqual = std.testing.expectEqual;
 
 const defaultStep: f32 = 1 / 48000;
 
-/// the main struct, that should connect to the outside
-pub fn Noize(comptime N: type) type {
-    return struct {
-        node: N = N{}, // root node
-        in: Tuple(&N.Input),
-        out: Tuple(&N.Output),
-
-        pub inline fn eval(self: *@This(), step: f32) void {
-            self.out = self.eval(step, self.in);
-        }
-    };
+pub fn lin2db(lin: f32) f32 {
+    return 10 * @log10(lin);
 }
 
 /// identity function, mostly for testing purpose
@@ -523,6 +514,50 @@ pub fn Sin() type {
             const freq = input[0];
             self.phase = @mod(self.phase + freq * step * tau, tau);
             return .{v};
+        }
+    };
+}
+
+/// add two entries
+pub fn Mix(comptime T: type, comptime mix: T) type {
+    return struct {
+        pub const Input = [2]type{ T, T };
+        pub const Output = [1]type{T};
+
+        fn eval(self: *@This(), step: f32, input: Tuple(&Input)) Tuple(&Output) {
+            _ = step;
+            _ = self;
+            return .{input[0] * (1 - mix) + input[1] * mix};
+        }
+    };
+}
+
+pub fn FloatToInt(comptime F: type, comptime T: type) type {
+    return struct {
+        pub const Input = [1]type{F};
+        pub const Output = [1]type{T};
+
+        fn eval(self: *@This(), step: f32, input: Tuple(&Input)) Tuple(&Output) {
+            _ = step;
+            _ = self;
+            return .{
+                @as(T, @intFromFloat(input[0])),
+            };
+        }
+    };
+}
+
+pub fn ToFloat(comptime T: type) type {
+    return struct {
+        pub const Input = [1]type{T};
+        pub const Output = [1]type{f32};
+
+        fn eval(self: *@This(), step: f32, input: Tuple(&Input)) Tuple(&Output) {
+            _ = step;
+            _ = self;
+            return .{
+                @as(f32, @floatFromInt(input[0])),
+            };
         }
     };
 }
