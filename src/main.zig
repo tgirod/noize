@@ -10,17 +10,19 @@ const Lfo = n.SeqN(&[_]type{
     n.FloatToInt(f32, usize),
 });
 
-const VarDelay = n.Seq(
+const VarDelay = n.SeqN(&[_]type{
     n.Par(n.Id(f32), Lfo),
     n.Delay(f32, 48000),
-);
+    n.MulAdd(f32, 0.8, 0),
+});
 
 const Loopback = n.Rec(
-    n.Mix(f32, 0.3),
+    n.Add(f32),
     VarDelay,
 );
 
-var root = n.Noize(Loopback){};
+const Root = n.Noize(n.Stereo(Loopback));
+var root = Root{};
 
 fn processCallback(nframes: u32, arg: ?*anyopaque) callconv(.C) c_int {
     _ = arg;
@@ -30,18 +32,22 @@ fn processCallback(nframes: u32, arg: ?*anyopaque) callconv(.C) c_int {
     return 0;
 }
 
-var client: jack.Client(1, 1) = undefined;
+var client: jack.Client(1, 2) = undefined;
 
 pub fn main() !void {
     try client.init("noize", &processCallback);
     defer client.deinit();
+    std.debug.print("init ok\n", .{});
+
+    n.init(client.samplerate());
+    std.debug.print("srate ok\n", .{});
 
     try client.activate();
     defer client.deactivate() catch {};
+    std.debug.print("activate ok\n", .{});
 
     try client.connect();
-
-    n.init(client.samplerate());
+    std.debug.print("connect ok\n", .{});
 
     while (true) {
         std.time.sleep(std.time.ns_per_s);
