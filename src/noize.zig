@@ -44,10 +44,11 @@ pub fn Id(comptime T: type) type {
 }
 
 test "id" {
+    init(48000);
     const N = Id(u8);
     var n = N{};
     const expected = Tuple(&N.Output){23};
-    const output = n.eval(defaultStep, expected);
+    const output = n.eval(expected);
     try expectEqual(expected, output);
 }
 
@@ -67,10 +68,11 @@ pub fn Const(comptime T: type, comptime value: T) type {
 }
 
 test "const" {
+    init(48000);
     const N = Const(u8, 23);
     var n = N{};
     const expected: Tuple(&N.Output) = .{23};
-    const output = n.eval(defaultStep, .{});
+    const output = n.eval(.{});
     try expectEqual(expected, output);
 }
 
@@ -89,10 +91,11 @@ pub fn Add(comptime T: type) type {
 }
 
 test "add" {
+    init(48000);
     const N = Add(u8);
     var n = N{};
     const expected = Tuple(&N.Output){23 + 42};
-    const output = n.eval(defaultStep, .{ 23, 42 });
+    const output = n.eval(.{ 23, 42 });
     try expectEqual(expected, output);
 }
 
@@ -111,10 +114,11 @@ pub fn Mul(comptime T: type) type {
 }
 
 test "mul" {
+    init(48000);
     const N = Mul(u64);
     var n = N{};
     const expected = Tuple(&N.Output){23 * 42};
-    const output = n.eval(defaultStep, .{ 23, 42 });
+    const output = n.eval(.{ 23, 42 });
     try expectEqual(expected, output);
 }
 
@@ -171,10 +175,11 @@ pub fn Seq(comptime A: type, comptime B: type) type {
 }
 
 test "seq" {
+    init(48000);
     const N = Seq(Id(u8), Id(u8));
     var n = N{};
     const expected = Tuple(&N.Output){23};
-    const output = n.eval(defaultStep, expected);
+    const output = n.eval(expected);
     try expectEqual(expected, output);
 }
 
@@ -191,10 +196,11 @@ pub fn SeqN(comptime Nodes: []const type) type {
 }
 
 test "seqN" {
+    init(48000);
     const N = SeqN(&[_]type{ Id(u8), Id(u8), Id(u8) });
     var n = N{};
     const expected = Tuple(&N.Output){23};
-    const output = n.eval(defaultStep, .{23});
+    const output = n.eval(.{23});
     try expectEqual(expected, output);
 }
 
@@ -222,10 +228,11 @@ pub fn Par(comptime A: type, comptime B: type) type {
 }
 
 test "par" {
+    init(48000);
     const N = Par(Id(u8), Id(u8));
     var n = N{};
     const expected = Tuple(&N.Output){ 23, 42 };
-    const output = n.eval(defaultStep, expected);
+    const output = n.eval(expected);
     try expectEqual(expected, output);
 }
 
@@ -242,10 +249,11 @@ pub fn ParN(comptime Nodes: []const type) type {
 }
 
 test "parN" {
+    init(48000);
     const N = ParN(&[_]type{ Id(u8), Id(u8), Id(u8) });
     var n = N{};
     const expected = Tuple(&N.Output){ 23, 42, 66 };
-    const output = n.eval(defaultStep, expected);
+    const output = n.eval(expected);
     try expectEqual(expected, output);
 }
 
@@ -284,10 +292,11 @@ pub fn Dup(comptime N: type, comptime S: usize) type {
 }
 
 test "dup" {
+    init(48000);
     const N = Dup(Id(u8), 2);
     var n = N{};
     const input = Tuple(&N.Output){ 1, 2 };
-    const output = n.eval(defaultStep, input);
+    const output = n.eval(input);
     try expectEqual(input, output);
 }
 
@@ -327,6 +336,7 @@ pub fn Merge(comptime A: type, comptime B: type) type {
 }
 
 test "merge" {
+    init(48000);
     const N = Merge(
         Par(
             Par(Const(u8, 1), Const(u8, 2)),
@@ -336,7 +346,7 @@ test "merge" {
     );
     var n = N{};
     const expected = Tuple(&N.Output){ 4, 6 };
-    const output = n.eval(defaultStep, .{});
+    const output = n.eval(.{});
     try expectEqual(expected, output);
 }
 
@@ -369,13 +379,14 @@ pub fn Split(comptime A: type, comptime B: type) type {
 }
 
 test "split" {
+    init(48000);
     const N = Split(
         Dup(Id(u8), 2),
         Dup(Id(u8), 4),
     );
     var n = N{};
     const expected = Tuple(&N.Output){ 1, 2, 1, 2 };
-    const output = n.eval(defaultStep, .{ 1, 2 });
+    const output = n.eval(.{ 1, 2 });
     try expectEqual(expected, output);
 }
 
@@ -417,13 +428,14 @@ pub fn Rec(comptime A: type, comptime B: type) type {
 }
 
 test "rec" {
+    init(48000);
     const N = Rec(
         Add(u8),
         Id(u8),
     );
     var n = N{};
     for (1..5) |i| {
-        const out = n.eval(defaultStep, .{1});
+        const out = n.eval(.{1});
         try expectEqual(.{i}, out);
     }
 }
@@ -451,12 +463,13 @@ pub fn Mem(comptime T: type, comptime S: usize) type {
 }
 
 test "mem" {
+    init(48000);
     const N = Mem(u8, 1);
     var n = N{};
     const input = [_]u8{ 1, 2, 3, 4, 5 };
     const expected = [_]u8{ 0, 1, 2, 3, 4 };
     for (input, expected) |i, e| {
-        const out = n.eval(defaultStep, .{i});
+        const out = n.eval(.{i});
         try expectEqual(e, out[0]);
     }
 }
@@ -492,12 +505,13 @@ pub fn Delay(comptime T: type, comptime S: usize) type {
 }
 
 test "delay" {
+    init(48000);
     const N = Delay(u8, 1);
     var n = N{};
     const input = [_]u8{ 1, 2, 3, 4, 5 };
     const expected = [_]u8{ 0, 1, 2, 3, 4 };
     for (input, expected) |i, e| {
-        const out = n.eval(defaultStep, .{ i, 1 });
+        const out = n.eval(.{ i, 1 });
         try expectEqual(e, out[0]);
     }
 }
@@ -526,11 +540,12 @@ pub fn Loop(
 }
 
 test "loop" {
+    init(48000);
     const data = [4]u8{ 1, 2, 3, 4 };
     const N = Loop(u8, data.len, data);
     var n = N{};
     for (0..data.len * 2) |i| {
-        const out = n.eval(defaultStep, .{});
+        const out = n.eval(.{});
         try expectEqual(data[i % data.len], out[0]);
     }
 }
