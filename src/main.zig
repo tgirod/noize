@@ -20,6 +20,7 @@ pub fn main() !void {
     defer client.deactivate() catch {};
 
     try client.connect();
+    n.init(client.getSampleRate());
 
     while (true) {
         std.time.sleep(std.time.ns_per_s);
@@ -49,7 +50,7 @@ fn processCallback(nframes: u32, arg: ?*anyopaque) callconv(.C) c_int {
     const out_buf = client.outputBuffer(0, nframes);
 
     for (in_buf, out_buf) |*i, *o| {
-        const out = node.eval(step, .{i.*});
+        const out = node.eval(.{i.*});
         o.* = out[0];
     }
     return 0;

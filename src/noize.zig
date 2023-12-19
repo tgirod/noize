@@ -6,8 +6,27 @@ const expectEqual = std.testing.expectEqual;
 
 const defaultStep: f32 = 1 / 48000;
 
+var step: f32 = undefined;
+
 pub fn lin2db(lin: f32) f32 {
     return 10 * @log10(lin);
+}
+
+pub fn init(srate: u32) void {
+    step = 1 / @as(f32, @floatFromInt(srate));
+}
+
+/// the main struct, that should connect to the outside
+pub fn Noize(comptime N: type) type {
+    return struct {
+        node: N = N{}, // root node
+        in: Tuple(&N.Input),
+        out: Tuple(&N.Output),
+
+        pub inline fn eval(self: *@This()) void {
+            self.out = self.eval(step, self.in);
+        }
+    };
 }
 
 /// identity function, mostly for testing purpose
@@ -16,7 +35,7 @@ pub fn Id(comptime T: type) type {
         pub const Input = [1]type{T};
         pub const Output = [1]type{T};
 
-        pub inline fn eval(self: *@This(), step: f32, input: Tuple(&Input)) Tuple(&Output) {
+        pub inline fn eval(self: *@This(), input: Tuple(&Input)) Tuple(&Output) {
             _ = step;
             _ = self;
             return .{input[0]};
@@ -38,7 +57,7 @@ pub fn Const(comptime T: type, comptime value: T) type {
         pub const Input = [0]type{};
         pub const Output = [1]type{T};
 
-        pub inline fn eval(self: *@This(), step: f32, input: Tuple(&Input)) Tuple(&Output) {
+        pub inline fn eval(self: *@This(), input: Tuple(&Input)) Tuple(&Output) {
             _ = step;
             _ = input;
             _ = self;
@@ -61,7 +80,7 @@ pub fn Add(comptime T: type) type {
         pub const Input = [2]type{ T, T };
         pub const Output = [1]type{T};
 
-        fn eval(self: *@This(), step: f32, input: Tuple(&Input)) Tuple(&Output) {
+        fn eval(self: *@This(), input: Tuple(&Input)) Tuple(&Output) {
             _ = step;
             _ = self;
             return .{input[0] + input[1]};
@@ -83,7 +102,7 @@ pub fn Mul(comptime T: type) type {
         pub const Input = [2]type{ T, T };
         pub const Output = [1]type{T};
 
-        fn eval(self: *@This(), step: f32, input: Tuple(&Input)) Tuple(&Output) {
+        fn eval(self: *@This(), input: Tuple(&Input)) Tuple(&Output) {
             _ = step;
             _ = self;
             return .{input[0] * input[1]};
@@ -105,7 +124,7 @@ pub fn MulAdd(comptime T: type, comptime mul: T, comptime add: T) type {
         pub const Input = [1]type{T};
         pub const Output = [1]type{T};
 
-        fn eval(self: *@This(), step: f32, input: Tuple(&Input)) Tuple(&Output) {
+        fn eval(self: *@This(), input: Tuple(&Input)) Tuple(&Output) {
             _ = step;
             _ = self;
             return .{@mulAdd(T, input[0], mul, add)};
@@ -125,7 +144,7 @@ pub fn Rescale(comptime T: type, comptime srcMin: T, comptime srcMax: T, comptim
         pub const Input = [1]type{T};
         pub const Output = [1]type{T};
 
-        fn eval(self: *@This(), step: f32, input: Tuple(&Input)) Tuple(&Output) {
+        fn eval(self: *@This(), input: Tuple(&Input)) Tuple(&Output) {
             _ = step;
             _ = self;
             return .{@mulAdd(T, input[0], mul, add)};
@@ -145,8 +164,8 @@ pub fn Seq(comptime A: type, comptime B: type) type {
         a: A = A{},
         b: B = B{},
 
-        pub inline fn eval(self: *@This(), step: f32, input: Tuple(&Input)) Tuple(&Output) {
-            return self.b.eval(step, self.a.eval(step, input));
+        pub inline fn eval(self: *@This(), input: Tuple(&Input)) Tuple(&Output) {
+            return self.b.eval(self.a.eval(input));
         }
     };
 }
@@ -187,7 +206,7 @@ pub fn Par(comptime A: type, comptime B: type) type {
         a: A = A{},
         b: B = B{},
 
-        pub inline fn eval(self: *@This(), step: f32, input: Tuple(&Input)) Tuple(&Output) {
+        pub inline fn eval(self: *@This(), input: Tuple(&Input)) Tuple(&Output) {
             var input_a: Tuple(&A.Input) = undefined;
             var input_b: Tuple(&B.Input) = undefined;
             inline for (input, 0..) |v, i| {
@@ -197,7 +216,7 @@ pub fn Par(comptime A: type, comptime B: type) type {
                     input_b[i - input_a.len] = v;
                 }
             }
-            return self.a.eval(step, input_a) ++ self.b.eval(step, input_b);
+            return self.a.eval(input_a) ++ self.b.eval(input_b);
         }
     };
 }
@@ -238,7 +257,7 @@ pub fn Dup(comptime N: type, comptime S: usize) type {
         pub const Input = N.Input ** S;
         pub const Output = N.Output ** S;
 
-        pub inline fn eval(self: *@This(), step: f32, input: Tuple(&Input)) Tuple(&Output) {
+        pub inline fn eval(self: *@This(), input: Tuple(&Input)) Tuple(&Output) {
             // input for one node
             var in: Tuple(&N.Input) = undefined;
             // output for one node
@@ -252,7 +271,7 @@ pub fn Dup(comptime N: type, comptime S: usize) type {
                     in[i] = input[n * in.len + i];
                 }
                 // evaluate node
-                out = self.nodes[n].eval(step, in);
+                out = self.nodes[n].eval(in);
                 // copy result to output
                 inline for (0..out.len) |o| {
                     output[n * out.len + o] = out[o];
@@ -292,8 +311,8 @@ pub fn Merge(comptime A: type, comptime B: type) type {
         a: A = A{},
         b: B = B{},
 
-        pub inline fn eval(self: *@This(), step: f32, input: Tuple(&Input)) Tuple(&Output) {
-            const output_a = self.a.eval(step, input);
+        pub inline fn eval(self: *@This(), input: Tuple(&Input)) Tuple(&Output) {
+            const output_a = self.a.eval(input);
             var input_b: Tuple(&B.Input) = undefined;
             inline for (output_a, 0..) |v, i| {
                 if (i < input_b.len) {
@@ -302,7 +321,7 @@ pub fn Merge(comptime A: type, comptime B: type) type {
                     input_b[i % small] += v;
                 }
             }
-            return self.b.eval(step, input_b);
+            return self.b.eval(input_b);
         }
     };
 }
@@ -342,9 +361,9 @@ pub fn Split(comptime A: type, comptime B: type) type {
         a: A = A{},
         b: B = B{},
 
-        pub inline fn eval(self: *@This(), step: f32, input: Tuple(&Input)) Tuple(&Output) {
-            const output_a = self.a.eval(step, input);
-            return self.b.eval(step, output_a ** ratio);
+        pub inline fn eval(self: *@This(), input: Tuple(&Input)) Tuple(&Output) {
+            const output_a = self.a.eval(input);
+            return self.b.eval(output_a ** ratio);
         }
     };
 }
@@ -385,13 +404,13 @@ pub fn Rec(comptime A: type, comptime B: type) type {
         b: B = B{},
         mem: Tuple(&A.Output) = undefined,
 
-        pub inline fn eval(self: *@This(), step: f32, input: Tuple(&Input)) Tuple(&Output) {
+        pub inline fn eval(self: *@This(), input: Tuple(&Input)) Tuple(&Output) {
             // eval B from previous iteration
-            const output_b = self.b.eval(step, self.mem);
+            const output_b = self.b.eval(self.mem);
             // concat external input to match A.Input
             const input_a = output_b ++ input;
             // evaluate A and store result in mem
-            self.mem = self.a.eval(step, input_a);
+            self.mem = self.a.eval(input_a);
             return self.mem;
         }
     };
@@ -422,8 +441,7 @@ pub fn Mem(comptime T: type, comptime S: usize) type {
         mem: [S]T = [1]T{0} ** S,
         pos: usize = 0,
 
-        pub inline fn eval(self: *@This(), step: f32, input: Tuple(&Input)) Tuple(&Output) {
-            _ = step;
+        pub inline fn eval(self: *@This(), input: Tuple(&Input)) Tuple(&Output) {
             const v = self.mem[self.pos];
             self.mem[self.pos] = input[0];
             self.pos = (self.pos + 1) % S;
@@ -456,8 +474,7 @@ pub fn Delay(comptime T: type, comptime S: usize) type {
         mem: [S]T = [1]T{0} ** S,
         pos: usize = 0,
 
-        pub inline fn eval(self: *@This(), step: f32, input: Tuple(&Input)) Tuple(&Output) {
-            _ = step;
+        pub inline fn eval(self: *@This(), input: Tuple(&Input)) Tuple(&Output) {
             // clamping length to S
             const length = @min(input[1], S);
             if (length == 0) {
@@ -499,8 +516,7 @@ pub fn Loop(
         mem: [S]T = data,
         pos: usize = 0,
 
-        pub inline fn eval(self: *@This(), step: f32, input: Tuple(&Input)) Tuple(&Output) {
-            _ = step;
+        pub inline fn eval(self: *@This(), input: Tuple(&Input)) Tuple(&Output) {
             _ = input;
             const v = self.mem[self.pos];
             self.pos = (self.pos + 1) % S;
@@ -528,7 +544,7 @@ pub fn Sin() type {
         phase: f32 = 0,
 
         const Self = @This();
-        pub inline fn eval(self: *@This(), step: f32, input: Tuple(&Input)) Tuple(&Output) {
+        pub inline fn eval(self: *@This(), input: Tuple(&Input)) Tuple(&Output) {
             const tau = std.math.tau;
             const v = @sin(self.phase);
             const freq = input[0];
@@ -544,8 +560,7 @@ pub fn Mix(comptime T: type, comptime mix: T) type {
         pub const Input = [2]type{ T, T };
         pub const Output = [1]type{T};
 
-        fn eval(self: *@This(), step: f32, input: Tuple(&Input)) Tuple(&Output) {
-            _ = step;
+        fn eval(self: *@This(), input: Tuple(&Input)) Tuple(&Output) {
             _ = self;
             return .{input[0] * (1 - mix) + input[1] * mix};
         }
@@ -557,8 +572,7 @@ pub fn FloatToInt(comptime F: type, comptime T: type) type {
         pub const Input = [1]type{F};
         pub const Output = [1]type{T};
 
-        fn eval(self: *@This(), step: f32, input: Tuple(&Input)) Tuple(&Output) {
-            _ = step;
+        fn eval(self: *@This(), input: Tuple(&Input)) Tuple(&Output) {
             _ = self;
             return .{
                 @as(T, @intFromFloat(input[0])),
@@ -572,8 +586,7 @@ pub fn ToFloat(comptime T: type) type {
         pub const Input = [1]type{T};
         pub const Output = [1]type{f32};
 
-        fn eval(self: *@This(), step: f32, input: Tuple(&Input)) Tuple(&Output) {
-            _ = step;
+        fn eval(self: *@This(), input: Tuple(&Input)) Tuple(&Output) {
             _ = self;
             return .{
                 @as(f32, @floatFromInt(input[0])),
