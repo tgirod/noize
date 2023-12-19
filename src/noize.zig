@@ -108,6 +108,20 @@ test "mul" {
     try expectEqual(expected, output);
 }
 
+/// (entry * mul) + add
+pub fn MulAdd(comptime T: type, comptime mul: T, comptime add: T) type {
+    return struct {
+        pub const Input = [1]type{T};
+        pub const Output = [1]type{T};
+
+        fn eval(self: *@This(), step: f32, input: Tuple(&Input)) Tuple(&Output) {
+            _ = step;
+            _ = self;
+            return .{@mulAdd(T, input[0], mul, add)};
+        }
+    };
+}
+
 /// connect two nodes as a sequence
 pub fn Seq(comptime A: type, comptime B: type) type {
     if (!std.mem.eql(type, &A.Output, &B.Input)) {
