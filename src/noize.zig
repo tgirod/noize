@@ -19,6 +19,9 @@ pub fn init(srate: u32) void {
 /// the main struct, that should connect to the outside
 pub fn Noize(comptime N: type) type {
     return struct {
+        pub const Input = N.Input;
+        pub const Output = N.Output;
+
         node: N = N{}, // root node
 
         pub inline fn eval(
@@ -27,14 +30,14 @@ pub fn Noize(comptime N: type) type {
             input_buffers: [N.Input.len][]f32,
             output_buffers: [N.Output.len][]f32,
         ) void {
-            const Input = Tuple(&N.Input);
-            const Output = Tuple(&N.Output);
+            const In = Tuple(&Input);
+            const Out = Tuple(&Output);
             for (0..nframes) |i| {
-                var input: Input = undefined;
+                var input: In = undefined;
                 inline for (0..N.Input.len) |j| {
                     input[j] = input_buffers[j][i];
                 }
-                const output: Output = self.node.eval(input);
+                const output: Out = self.node.eval(input);
                 inline for (0..N.Output.len) |j| {
                     output_buffers[j][i] = output[j];
                 }
@@ -622,4 +625,15 @@ pub fn ToFloat(comptime T: type) type {
             };
         }
     };
+}
+
+pub fn Stereo(comptime T: type) type {
+    if (T.Output.len != 1) {
+        @compileError("T should have one output");
+    }
+
+    return Split(T, Par(
+        Id(T.Output[0]),
+        Id(T.Output[0]),
+    ));
 }
