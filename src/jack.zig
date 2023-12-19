@@ -89,6 +89,7 @@ pub fn Client(comptime I: usize, comptime O: usize) type {
             while (index < self.inputs.len and sources[index] != null) {
                 const source = sources[index];
                 const target = c.jack_port_name(self.inputs[index]);
+                std.debug.print("connecting : {s} --> {s}\n", .{ source.?, target });
                 if (c.jack_connect(self.client, source, target) != 0) {
                     return error.CannotConnect;
                 }
@@ -100,6 +101,7 @@ pub fn Client(comptime I: usize, comptime O: usize) type {
             while (index < self.outputs.len and targets[index] != null) {
                 const source = c.jack_port_name(self.outputs[index]);
                 const target = targets[index];
+                std.debug.print("connecting : {s} --> {s}\n", .{ source, target.? });
                 if (c.jack_connect(self.client, source, target) != 0) {
                     return error.CannotConnect;
                 }
