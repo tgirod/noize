@@ -6,7 +6,7 @@ const n = @import("noize.zig");
 const Lfo = n.SeqN(&[_]type{
     n.Const(f32, 0.2),
     n.Sin(),
-    n.Rescale(f32, -1, 1, 10, 48000),
+    n.MulAdd(f32, 1000, 24000),
     n.FloatToInt(f32, usize),
 });
 
