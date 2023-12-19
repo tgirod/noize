@@ -42,7 +42,7 @@ pub fn Client(comptime I: usize, comptime O: usize) type {
             }
 
             // register output ports
-            for (0..I) |i| {
+            for (0..O) |i| {
                 self.outputs[i] = c.jack_port_register(self.client, output_names[i], c.JACK_DEFAULT_AUDIO_TYPE, c.JackPortIsOutput, 0) orelse null;
                 if (self.outputs[i] == null) return error.CannotRegisterPort;
             }
