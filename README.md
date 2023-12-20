@@ -82,3 +82,12 @@ Experimenting with @Vector. Audio backends are usually asking for samples in fra
 But to define a vector, I have to know its length at comptime. It means I would need info such as frame size and sample rate defined at comptime, but those informations are usually gathered at runtime (at least for jack).
 
 Also : so far, Sin is the only node that stores a variable internal state (its phase). This information led me to add a `step` parameter to the `eval` method, in order to pass this information around. Is it the right approach ?
+
+# Wed Dec 20 14:00:29 CET 2023
+
+Things are generally working, which is cool. But I think having samplerate and framesize set at comptime would be more convenient.
+
+For example, With delay max length declared at comptime, I have to declare it in samples because samplerate is runtime defined - so no conversion is possible.
+
+Earlier I hesitated to declare those values at comptime because they are usually known at runtime. But worst case scenario, a program could defined a list of valid samplerates, and generate one `Noize(srate)` type for each, and use only one. That would only make the program a bit heavier.
+
