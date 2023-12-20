@@ -625,6 +625,14 @@ pub fn FloatToInt(comptime F: type, comptime T: type) type {
     };
 }
 
+test "FloatToInt" {
+    init(48000);
+    const N = FloatToInt(f32, i32);
+    var n = N{};
+    const out = n.eval(.{23});
+    try expectEqual(@as(i32, 23), out[0]);
+}
+
 pub fn ToFloat(comptime T: type) type {
     return struct {
         pub const Input = [1]type{T};
@@ -637,6 +645,14 @@ pub fn ToFloat(comptime T: type) type {
             };
         }
     };
+}
+
+test "ToFloat" {
+    init(48000);
+    const N = ToFloat(i32);
+    var n = N{};
+    const out = n.eval(.{23});
+    try expectEqual(@as(f32, 23), out[0]);
 }
 
 pub fn Stereo(comptime T: type) type {
