@@ -1,7 +1,7 @@
 const std = @import("std");
 const jack = @import("jack.zig");
 
-const n = @import("noize.zig");
+const n = @import("noize.zig").Noize(48000);
 
 const Lfo = n.SeqN(&[_]type{
     n.Const(f32, 0.2),
@@ -21,14 +21,14 @@ const Loopback = n.Rec(
     VarDelay,
 );
 
-const Root = n.Noize(n.Stereo(Loopback));
+const Root = n.Root(n.Stereo(Loopback));
 var root = Root{};
 
 fn processCallback(nframes: u32, arg: ?*anyopaque) callconv(.C) c_int {
     _ = arg;
-    const inputs = client.inputBuffers(nframes);
-    const outputs = client.outputBuffers(nframes);
-    root.eval(nframes, inputs, outputs);
+    const input = client.inputBuffers(nframes);
+    const output = client.outputBuffers(nframes);
+    root.eval(nframes, input, output);
     return 0;
 }
 
@@ -38,9 +38,6 @@ pub fn main() !void {
     try client.init("noize", &processCallback);
     defer client.deinit();
     std.debug.print("init ok\n", .{});
-
-    n.init(client.samplerate());
-    std.debug.print("srate ok\n", .{});
 
     try client.activate();
     defer client.deactivate() catch {};
