@@ -154,12 +154,9 @@ pub fn MulAdd(comptime T: type, comptime mul: T, comptime add: T) type {
 }
 
 pub fn Rescale(comptime T: type, comptime srcMin: T, comptime srcMax: T, comptime dstMin: T, comptime dstMax: T) type {
-    const srcAmp = srcMax - srcMin;
-    const dstAmp = dstMax - dstMin;
-    const mul = dstAmp / srcAmp;
-    const srcMid = (srcMin + srcMax) / 2;
-    const dstMid = (dstMin + dstMax) / 2;
-    const add = dstMid - srcMid;
+    const scaleIn = srcMax - srcMin;
+    const scaleOut = dstMax - dstMin;
+    const scale = scaleOut / scaleIn;
 
     return struct {
         pub const Input = [1]type{T};
@@ -168,9 +165,24 @@ pub fn Rescale(comptime T: type, comptime srcMin: T, comptime srcMax: T, comptim
         fn eval(self: *@This(), input: Tuple(&Input)) Tuple(&Output) {
             _ = step;
             _ = self;
-            return .{@mulAdd(T, input[0], mul, add)};
+            const out = @mulAdd(T, input[0] - srcMin, scale, dstMin);
+            return .{out};
         }
     };
+}
+
+test "Rescale" {
+    init(48000);
+    const data = [_][6]f32{
+        [_]f32{ 0, 1, 0, 100, 0, 0 },
+        [_]f32{ 0, 1, 0, 100, 1, 100 },
+        [_]f32{ -1, 1, 0, 100, 0, 50 },
+    };
+    inline for (data) |d| {
+        var n = Rescale(f32, d[0], d[1], d[2], d[3]){};
+        const out = n.eval(.{d[4]});
+        try expectEqual(d[5], out[0]);
+    }
 }
 
 /// connect two nodes as a sequence
