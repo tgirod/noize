@@ -91,3 +91,9 @@ For example, With delay max length declared at comptime, I have to declare it in
 
 Earlier I hesitated to declare those values at comptime because they are usually known at runtime. But worst case scenario, a program could defined a list of valid samplerates, and generate one `Noize(srate)` type for each, and use only one. That would only make the program a bit heavier.
 
+# Sun Dec 24 20:57:38 CET 2023
+
+I experimented with vector types. Here is what I learned from it:
+
+- my first algorithm to vectorize oscillators was completely wrong. The phase shift is step*freq for each step of the vector, and freq can be variable. So, to compute the phase vector, I need a scan function to accumulate.
+- I did some performance testing, comparing using vector types with regular sample per sample approach, and vector types are slower. I'm probably doing something wrong?
