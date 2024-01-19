@@ -65,18 +65,39 @@ pub fn Noize(comptime samplerate: usize) type {
 
         /// connect two nodes as a sequence
         pub fn Seq(comptime A: type, comptime B: type) type {
-            if (!std.mem.eql(type, &A.Output, &B.Input)) {
-                @compileError("mismatch");
+            for (0..@min(A.Output.len, B.Input.len)) |idx| {
+                if (A.Output[idx] != B.Input[idx]) {
+                    @compileError("type mismatch");
+                }
             }
 
+            const diff = @as(i32, A.Output.len) - @as(i32, B.Input.len);
+            // diff>0 --> spare outputs
+            // diff<0 --> spare inputs
+
             return struct {
-                pub const Input = A.Input;
-                pub const Output = B.Output;
-                a: A = A{},
-                b: B = B{},
+                pub const Input = if (diff < 0) A.Input ++ B.Input[A.Output.len..].* else A.Input;
+                pub const Output = if (diff > 0) B.Output ++ A.Output[B.Input.len..].* else B.Output;
+
+                a: A = undefined,
+                b: B = undefined,
 
                 pub inline fn eval(self: *@This(), input: Tuple(&Input)) Tuple(&Output) {
-                    return self.b.eval(self.a.eval(input));
+                    if (diff > 0) {
+                        // spare outputs of A are routed to the main output
+                        const output_a = self.a.eval(input);
+                        const input_b, const spare = split(output_a, B.Input.len);
+                        const output_b = self.b.eval(input_b);
+                        return output_b ++ spare;
+                    } else if (diff < 0) {
+                        // spare inputs of B are routed from the main input
+                        const input_a, const spare = split(input, A.Input.len);
+                        const output_a = self.a.eval(input_a);
+                        const input_b = output_a ++ spare;
+                        return self.b.eval(input_b);
+                    } else {
+                        return self.b.eval(self.a.eval(input));
+                    }
                 }
             };
         }
@@ -87,6 +108,26 @@ pub fn Noize(comptime samplerate: usize) type {
             const expected = Tuple(&N.Output){23};
             const output = n.eval(expected);
             try expectEqual(expected, output);
+        }
+
+        test "seq spare outputs" {
+            const N = Self.Seq(
+                Fork(Id(u8)),
+                Add(u8, 1),
+            );
+            var n = N{};
+            const output = n.eval(.{23});
+            try expectEqual(.{ 24, 23 }, output);
+        }
+
+        test "seq spare inputs" {
+            const N = Self.Seq(
+                Id(u8),
+                Sum(u8),
+            );
+            var n = N{};
+            const output = n.eval(.{ 1, 2 });
+            try expectEqual(.{1 + 2}, output);
         }
 
         /// connect two nodes as a sequence
