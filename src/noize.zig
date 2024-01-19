@@ -336,7 +336,7 @@ pub fn Noize(comptime samplerate: usize) type {
         }
 
         /// multiply two entries
-        pub fn Mul(comptime T: type) type {
+        pub fn Product(comptime T: type) type {
             return struct {
                 pub const Input = [2]type{ T, T };
                 pub const Output = [1]type{T};
@@ -349,7 +349,7 @@ pub fn Noize(comptime samplerate: usize) type {
         }
 
         test "mul" {
-            const N = Self.Mul(u64);
+            const N = Self.Product(u64);
             var n = N{};
             const expected = Tuple(&N.Output){23 * 42};
             const output = n.eval(.{ 23, 42 });
