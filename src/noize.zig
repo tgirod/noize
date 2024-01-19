@@ -437,6 +437,18 @@ pub fn Noize(comptime samplerate: usize) type {
             try expectEqual(expected, output);
         }
 
+        pub fn Add(comptime T: type, comptime value: T) type {
+            return struct {
+                pub const Input = [1]type{T};
+                pub const Output = [1]type{T};
+
+                fn eval(self: *@This(), input: Tuple(&Input)) Tuple(&Output) {
+                    _ = self;
+                    return .{input[0] + value};
+                }
+            };
+        }
+
         /// multiply two entries
         pub fn Product(comptime T: type) type {
             return struct {
@@ -458,15 +470,14 @@ pub fn Noize(comptime samplerate: usize) type {
             try expectEqual(expected, output);
         }
 
-        /// (entry * mul) + add
-        pub fn MulAdd(comptime T: type, comptime mul: T, comptime add: T) type {
+        pub fn Mul(comptime T: type, comptime value: T) type {
             return struct {
                 pub const Input = [1]type{T};
                 pub const Output = [1]type{T};
 
                 fn eval(self: *@This(), input: Tuple(&Input)) Tuple(&Output) {
                     _ = self;
-                    return .{@mulAdd(T, input[0], mul, add)};
+                    return .{input[0] * value};
                 }
             };
         }
