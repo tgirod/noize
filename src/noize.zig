@@ -237,7 +237,7 @@ pub fn Noize(comptime samplerate: usize) type {
 
         test "rec" {
             const N = Self.Rec(
-                Self.Add(u8),
+                Self.Sum(u8),
                 Self.Id(u8),
             );
             var n = N{};
@@ -315,7 +315,7 @@ pub fn Noize(comptime samplerate: usize) type {
             try expectEqual(expected, output);
         }
 
-        pub fn Add(comptime T: type) type {
+        pub fn Sum(comptime T: type) type {
             return struct {
                 pub const Input = [2]type{ T, T };
                 pub const Output = [1]type{T};
@@ -328,7 +328,7 @@ pub fn Noize(comptime samplerate: usize) type {
         }
 
         test "add" {
-            const N = Self.Add(u8);
+            const N = Self.Sum(u8);
             var n = N{};
             const expected = Tuple(&N.Output){23 + 42};
             const output = n.eval(.{ 23, 42 });
