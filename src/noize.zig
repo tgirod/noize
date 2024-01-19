@@ -118,15 +118,7 @@ pub fn Noize(comptime samplerate: usize) type {
                 b: B = B{},
 
                 pub inline fn eval(self: *@This(), input: Tuple(&Input)) Tuple(&Output) {
-                    var input_a: Tuple(&A.Input) = undefined;
-                    var input_b: Tuple(&B.Input) = undefined;
-                    inline for (input, 0..) |v, i| {
-                        if (i < input_a.len) {
-                            input_a[i] = v;
-                        } else {
-                            input_b[i - input_a.len] = v;
-                        }
-                    }
+                    const input_a, const input_b = split(input, A.Input.len);
                     return self.a.eval(input_a) ++ self.b.eval(input_b);
                 }
             };
