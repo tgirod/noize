@@ -8,6 +8,55 @@ test {
     _ = Noize(48000);
 }
 
+fn Sub(comptime T: type, comptime low: usize, comptime high: usize) type {
+    const info = @typeInfo(T);
+    const old_fields = std.meta.fields(T)[low..high];
+    var new_fields: [old_fields.len]std.builtin.Type.StructField = undefined;
+    for (old_fields, 0..) |old, i| {
+        new_fields[i] = .{
+            .name = std.fmt.comptimePrint("{d}", .{i}),
+            .type = old.type,
+            .default_value = old.default_value,
+            .alignment = old.alignment,
+            .is_comptime = old.is_comptime,
+        };
+    }
+    return @Type(.{
+        .Struct = .{
+            .layout = info.Struct.layout,
+            .fields = &new_fields,
+            .decls = &.{},
+            .is_tuple = true,
+        },
+    });
+}
+
+fn Split(comptime T: type, comptime pivot: usize) type {
+    const fields = std.meta.fields(T);
+    return std.meta.Tuple(&[_]type{
+        Sub(T, 0, pivot),
+        Sub(T, pivot, fields.len),
+    });
+}
+
+/// extract the subpart of a tuple in the given range
+fn sub(tuple: anytype, comptime low: usize, comptime high: usize) Sub(@TypeOf(tuple), low, high) {
+    var out: Sub(@TypeOf(tuple), low, high) = undefined;
+    inline for (low..high, 0..) |i, o| {
+        out[o] = tuple[i];
+    }
+    return out;
+}
+
+/// split a tuple in two at pivot point
+fn split(tuple: anytype, comptime pivot: usize) Split(@TypeOf(tuple), pivot) {
+    const fields = std.meta.fields(@TypeOf(tuple));
+    return .{
+        sub(tuple, 0, pivot),
+        sub(tuple, pivot, fields.len),
+    };
+}
+
 pub fn Noize(comptime samplerate: usize) type {
     return struct {
         const Self = @This();
