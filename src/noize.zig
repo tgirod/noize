@@ -283,36 +283,7 @@ pub fn Noize(comptime samplerate: usize) type {
 
         /// duplicates S times a node of type N and stacks them in parallel
         pub fn Dup(comptime N: type, comptime S: usize) type {
-            return struct {
-                nodes: [S]N = [1]N{N{}} ** S,
-
-                pub const Input = N.Input ** S;
-                pub const Output = N.Output ** S;
-
-                pub inline fn eval(self: *@This(), input: Tuple(&Input)) Tuple(&Output) {
-                    // input for one node
-                    var in: Tuple(&N.Input) = undefined;
-                    // output for one node
-                    var out: Tuple(&N.Output) = undefined;
-                    // final output
-                    var output: Tuple(&Output) = undefined;
-
-                    inline for (0..S) |n| {
-                        // prepare input tuple
-                        inline for (0..in.len) |i| {
-                            in[i] = input[n * in.len + i];
-                        }
-                        // evaluate node
-                        out = self.nodes[n].eval(in);
-                        // copy result to output
-                        inline for (0..out.len) |o| {
-                            output[n * out.len + o] = out[o];
-                        }
-                    }
-
-                    return output;
-                }
-            };
+            return ParN(&[_]type{N} ** S);
         }
 
         test "dup" {
