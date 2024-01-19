@@ -281,6 +281,26 @@ pub fn Noize(comptime samplerate: usize) type {
             };
         }
 
+        pub fn Fork(comptime N: type) type {
+            return struct {
+                pub const Input = N.Input;
+                pub const Output = N.Output ** 2;
+
+                n: N = undefined,
+
+                pub inline fn eval(self: *@This(), input: Tuple(&Input)) Tuple(&Output) {
+                    return self.n.eval(input) ** 2;
+                }
+            };
+        }
+
+        test "fork" {
+            const N = Self.Fork(Self.Id(u8));
+            var n = N{};
+            const output = n.eval(.{23});
+            try expectEqual(.{ 23, 23 }, output);
+        }
+
         /// duplicates S times a node of type N and stacks them in parallel
         pub fn Dup(comptime N: type, comptime S: usize) type {
             return ParN(&[_]type{N} ** S);
