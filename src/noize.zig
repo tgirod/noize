@@ -347,7 +347,7 @@ pub fn Noize(comptime samplerate: usize) type {
             };
         }
 
-        test "add" {
+        test "sum" {
             const N = Self.Sum(u8);
             var n = N{};
             const expected = Tuple(&N.Output){23 + 42};
@@ -368,7 +368,7 @@ pub fn Noize(comptime samplerate: usize) type {
             };
         }
 
-        test "mul" {
+        test "product" {
             const N = Self.Product(u64);
             var n = N{};
             const expected = Tuple(&N.Output){23 * 42};
