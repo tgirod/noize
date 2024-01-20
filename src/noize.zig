@@ -280,30 +280,34 @@ pub fn Noize(comptime samplerate: usize) type {
             try expectEqual(expected, output);
         }
 
+        /// recursive operator
+        /// loop A --> B --> A
+        /// A --> B is delayed one sample to avoid infinite loop
+        /// spare inputs and outputs of A are Rec's IO
         pub fn Rec(comptime A: type, comptime B: type) type {
-            if (B.Input.len != A.Output.len) {
-                @compileError("length mismatch : A --> B");
-            }
-
-            if (!std.mem.eql(type, &B.Input, &A.Output)) {
-                @compileError("type mismatch : A --> B");
+            if (A.Output.len < B.Input.len) {
+                @compileError("A.Output >= B.Input not verified");
             }
 
             if (A.Input.len < B.Output.len) {
-                @compileError("length mismatch : B --> A");
+                @compileError("A.Input >= B.Output not verified");
             }
 
-            if (!std.mem.eql(type, A.Input[0..B.Output.len], &B.Output)) {
-                @compileError("type mismatch : B --> A");
+            if (!std.mem.eql(type, B.Input[0..], A.Output[0..B.Input.len])) {
+                @compileError("type mismatch A --> B");
             }
 
-            const len = A.Input.len - B.Output.len;
+            if (!std.mem.eql(type, B.Output[0..], A.Input[0..B.Output.len])) {
+                @compileError("type mismatch B --> A");
+            }
+
             return struct {
-                pub const Input = @as([len]type, A.Input[B.Output.len..].*);
-                pub const Output = A.Output;
-                a: A = A{},
-                b: B = B{},
-                mem: Tuple(&A.Output) = undefined,
+                pub const Input = A.Input[B.Output.len..].*;
+                pub const Output = A.Output[B.Input.len..].*;
+
+                a: A = undefined,
+                b: B = undefined,
+                mem: Tuple(&B.Input) = undefined,
 
                 pub inline fn eval(self: *@This(), input: Tuple(&Input)) Tuple(&Output) {
                     // eval B from previous iteration
@@ -311,16 +315,17 @@ pub fn Noize(comptime samplerate: usize) type {
                     // concat external input to match A.Input
                     const input_a = output_b ++ input;
                     // evaluate A and store result in mem
-                    self.mem = self.a.eval(input_a);
-                    return self.mem;
+                    const output_a = self.a.eval(input_a);
+                    self.mem, const output = split(output_a, B.Input.len);
+                    return output;
                 }
             };
         }
 
         test "rec" {
             const N = Self.Rec(
-                Self.Sum(u8),
-                Self.Id(u8),
+                Self.Fork(Self.Sum(u8)),
+                Id(u8),
             );
             var n = N{};
             for (1..5) |i| {
