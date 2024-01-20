@@ -63,7 +63,9 @@ pub fn Noize(comptime samplerate: usize) type {
 
         pub const step: f32 = 1 / @as(f32, @floatFromInt(samplerate));
 
-        /// connect two nodes as a sequence
+        /// sequence operator, A --> B
+        /// if A.Output > B.Input, spare outputs are added to Seq's outputs
+        /// if A.Output < B.Input, spare inputs are added to Seq's inputs
         pub fn Seq(comptime A: type, comptime B: type) type {
             for (0..@min(A.Output.len, B.Input.len)) |idx| {
                 if (A.Output[idx] != B.Input[idx]) {
@@ -130,7 +132,7 @@ pub fn Noize(comptime samplerate: usize) type {
             try expectEqual(.{1 + 2}, output);
         }
 
-        /// connect two nodes as a sequence
+        /// apply Seq to a a slice of nodes
         pub fn SeqN(comptime Nodes: []const type) type {
             return switch (Nodes.len) {
                 0 => @compileError("sequence at least two nodes"),
@@ -150,7 +152,7 @@ pub fn Noize(comptime samplerate: usize) type {
             try expectEqual(expected, output);
         }
 
-        /// combine two nodes in parallel
+        /// parallel operator : combine A and B in parallel
         pub fn Par(comptime A: type, comptime B: type) type {
             return struct {
                 pub const Input = A.Input ++ B.Input;
@@ -173,7 +175,7 @@ pub fn Noize(comptime samplerate: usize) type {
             try expectEqual(expected, output);
         }
 
-        /// connect two nodes as a sequence
+        /// apply parallel to a slice of nodes
         pub fn ParN(comptime Nodes: []const type) type {
             return switch (Nodes.len) {
                 0 => @compileError("not enough nodes"),
@@ -193,6 +195,7 @@ pub fn Noize(comptime samplerate: usize) type {
             try expectEqual(expected, output);
         }
 
+        // merge operator : reduce (add) A.Output to match B.Input
         pub fn Merge(comptime A: type, comptime B: type) type {
             // checking length
             const big = A.Output.len;
@@ -240,6 +243,7 @@ pub fn Noize(comptime samplerate: usize) type {
             try expectEqual(expected, output);
         }
 
+        /// split operator : duplicate A.Output to match B.Input
         pub fn Split(comptime A: type, comptime B: type) type {
             // checking length
             const small = A.Output.len;
