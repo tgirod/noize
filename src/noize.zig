@@ -570,16 +570,11 @@ pub fn Noize(comptime samplerate: usize) type {
                 pub inline fn eval(self: *@This(), input: Tuple(&Input)) Tuple(&Output) {
                     // clamping length to S
                     const length = @min(input[1], S);
-                    if (length == 0) {
-                        // shortcircuit delay if length == 0
-                        return .{input[0]};
-                    } else {
-                        const read = (self.pos + length) % S;
-                        const v = self.mem[read];
-                        self.mem[self.pos] = input[0];
-                        self.pos = (self.pos + 1) % S;
-                        return .{v};
-                    }
+                    const read = (self.pos + length) % S;
+                    const v = self.mem[read];
+                    self.mem[self.pos] = input[0];
+                    self.pos = (self.pos + 1) % S;
+                    return .{v};
                 }
             };
         }
