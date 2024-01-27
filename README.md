@@ -20,6 +20,7 @@ Also, I guess it is possible to inline every eval function. I'm curious to see i
 
 # TODO
 
+- [ ] FAUST's iteration syntax : https://faustdoc.grame.fr/manual/syntax/#iterations
 - [ ] methods to generate mermaid flowchart code
 - [ ] turn jack client into a backend type
   - take a Node type as parameter
