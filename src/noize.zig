@@ -518,6 +518,18 @@ pub fn Noize(comptime samplerate: usize) type {
             };
         }
 
+        pub fn MulAdd(comptime mul: f32, comptime add: f32) type {
+            return struct {
+                pub const Input = [1]type{f32};
+                pub const Output = [1]type{f32};
+
+                fn eval(self: *@This(), input: Tuple(&Input)) Tuple(&Output) {
+                    _ = self;
+                    return .{@mulAdd(f32, input[0], mul, add)};
+                }
+            };
+        }
+
         pub fn Rescale(comptime T: type, comptime srcMin: T, comptime srcMax: T, comptime dstMin: T, comptime dstMax: T) type {
             const scaleIn = srcMax - srcMin;
             const scaleOut = dstMax - dstMin;

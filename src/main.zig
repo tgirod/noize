@@ -6,20 +6,21 @@ const n = @import("noize.zig").Noize(48000);
 const Lfo = n.SeqN(&[_]type{
     n.Const(f32, 0.2),
     n.Sin(),
-    n.MulAdd(f32, 1000, 24000),
+    n.MulAdd(10000, 24000),
     n.FloatToInt(f32, usize),
 });
 
-const VarDelay = n.SeqN(&[_]type{
+const VarDelay = n.Seq(
     n.Par(n.Id(f32), Lfo),
     n.Delay(f32, 48000),
-    n.MulAdd(f32, 0.8, 0),
-});
+);
 
 const Loopback = n.Rec(
-    n.Add(f32),
+    n.Fork(n.Sum(f32)),
     VarDelay,
 );
+
+//
 
 const Root = n.Root(n.Stereo(Loopback));
 var root = Root{};
