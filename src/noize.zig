@@ -727,5 +727,37 @@ pub fn Noize(comptime samplerate: usize) type {
                 Self.Id(T.Output[0]),
             ));
         }
+
+        /// zero filter: y(n) = x(n) - zx(n-1)
+        pub fn Zero(comptime z: f32) type {
+            return struct {
+                pub const Input = [_]type{f32};
+                pub const Output = [_]type{f32};
+
+                mem: f32 = undefined,
+
+                fn eval(self: *@This(), input: Tuple(&Input)) Tuple(&Output) {
+                    const y = input[0] - z * self.mem;
+                    self.mem = input[0];
+                    return .{y};
+                }
+            };
+        }
+
+        /// pole filter (leaky integrator): y(n) = x(n) - py(n-1)
+        pub fn Pole(comptime p: f32) type {
+            return struct {
+                pub const Input = [_]type{f32};
+                pub const Output = [_]type{f32};
+
+                mem: f32 = undefined,
+
+                fn eval(self: *@This(), input: Tuple(&Input)) Tuple(&Output) {
+                    const y = input[0] + p * self.mem;
+                    self.mem = y;
+                    return .{y};
+                }
+            };
+        }
     };
 }
