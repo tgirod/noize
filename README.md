@@ -20,6 +20,7 @@ Also, I guess it is possible to inline every eval function. I'm curious to see i
 
 # TODO
 
+- [ ] trying to build a simple reverb : https://medium.com/the-seekers-project/coding-a-basic-reverb-algorithm-part-2-an-introduction-to-audio-programming-4db79dd4e325
 - [ ] FAUST's iteration syntax : https://faustdoc.grame.fr/manual/syntax/#iterations
 - [ ] methods to generate mermaid flowchart code
 - [ ] turn jack client into a backend type
@@ -98,3 +99,7 @@ I experimented with vector types. Here is what I learned from it:
 
 - my first algorithm to vectorize oscillators was completely wrong. The phase shift is step*freq for each step of the vector, and freq can be variable. So, to compute the phase vector, I need a scan function to accumulate.
 - I did some performance testing, comparing using vector types with regular sample per sample approach, and vector types are slower. I'm probably doing something wrong?
+
+# Thu Feb 15 18:24:51 CET 2024
+
+I should move back to a more simple implementation with arrays of f64 as inputs and outputs, and reorganize the code in a proper lib.
