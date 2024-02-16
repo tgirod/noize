@@ -1,53 +1,24 @@
 const std = @import("std");
-const jack = @import("jack.zig");
-
-const n = @import("noize.zig").Noize(48000);
-
-const Lfo = n.SeqN(&[_]type{
-    n.Const(f32, 0.2),
-    n.Sin(),
-    n.MulAdd(10000, 24000),
-    n.FloatToInt(f32, usize),
-});
-
-const VarDelay = n.Seq(
-    n.Par(n.Id(f32), Lfo),
-    n.Delay(f32, 48000),
-);
-
-const Loopback = n.Rec(
-    n.Fork(n.Sum(f32)),
-    VarDelay,
-);
-
-//
-
-const Root = n.Root(n.Stereo(Loopback));
-var root = Root{};
-
-fn processCallback(nframes: u32, arg: ?*anyopaque) callconv(.C) c_int {
-    _ = arg;
-    const input = client.inputBuffers(nframes);
-    const output = client.outputBuffers(nframes);
-    root.eval(nframes, input, output);
-    return 0;
-}
-
-var client: jack.Client(1, 2) = undefined;
 
 pub fn main() !void {
-    try client.init("noize", &processCallback);
-    defer client.deinit();
-    std.debug.print("init ok\n", .{});
+    // Prints to stderr (it's a shortcut based on `std.io.getStdErr()`)
+    std.debug.print("All your {s} are belong to us.\n", .{"codebase"});
 
-    try client.activate();
-    defer client.deactivate() catch {};
-    std.debug.print("activate ok\n", .{});
+    // stdout is for the actual output of your application, for example if you
+    // are implementing gzip, then only the compressed bytes should be sent to
+    // stdout, not any debugging messages.
+    const stdout_file = std.io.getStdOut().writer();
+    var bw = std.io.bufferedWriter(stdout_file);
+    const stdout = bw.writer();
 
-    try client.connect();
-    std.debug.print("connect ok\n", .{});
+    try stdout.print("Run `zig build test` to run the tests.\n", .{});
 
-    while (true) {
-        std.time.sleep(std.time.ns_per_s);
-    }
+    try bw.flush(); // don't forget to flush!
+}
+
+test "simple test" {
+    var list = std.ArrayList(i32).init(std.testing.allocator);
+    defer list.deinit(); // try commenting this out and see if zig detects the memory leak!
+    try list.append(42);
+    try std.testing.expectEqual(@as(i32, 42), list.pop());
 }
