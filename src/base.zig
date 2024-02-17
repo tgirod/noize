@@ -28,7 +28,7 @@ pub fn Fork(comptime N: type) type {
 
         n: N = undefined,
 
-        pub inline fn eval(self: *@This(), input: [in]f32) [out]f32 {
+        pub fn eval(self: *@This(), input: [in]f32) [out]f32 {
             return self.n.eval(input) ** 2;
         }
     };
@@ -48,7 +48,7 @@ pub fn MulAdd(comptime mul: f32, comptime add: f32) type {
         pub const in = 1;
         pub const out = 1;
 
-        pub inline fn eval(_: *@This(), input: [in]f32) [out]f32 {
+        pub fn eval(_: *@This(), input: [in]f32) [out]f32 {
             return .{@mulAdd(f32, input[0], mul, add)};
         }
     };
