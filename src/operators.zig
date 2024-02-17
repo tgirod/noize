@@ -110,6 +110,31 @@ test "SeqN" {
     try ee(expected, output);
 }
 
+/// SeqIter calls `constructor` `size` times and combine the nodes in sequence
+/// each call receive the index of the iterator as argument
+pub fn SeqIter(comptime size: usize, comptime constructor: fn (usize) type) type {
+    comptime var nodes: [size]type = undefined;
+    for (0..size) |i| {
+        nodes[i] = constructor(i);
+    }
+    return SeqN(&nodes);
+}
+
+test "SeqIter" {
+    const Add = Merge(IdTest(2), IdTest(1));
+    const Anon = struct {
+        fn constructor(_: usize) type {
+            return Add;
+        }
+    };
+
+    const N = SeqIter(3, Anon.constructor);
+    try ee(4, N.in);
+    try ee(1, N.out);
+    var n = N{};
+    try ee([_]f32{1 + 2 + 3 + 4}, n.eval(.{ 1, 2, 3, 4 }));
+}
+
 /// parallel operator : combine A and B in parallel
 pub fn Par(comptime A: type, comptime B: type) type {
     return struct {
