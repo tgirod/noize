@@ -157,6 +157,30 @@ test "parN" {
     try ee(expected, output);
 }
 
+/// ParIter calls `constructor` `size` times and combine the nodes in parallel
+/// each call receive the index of the iterator as argument
+pub fn ParIter(comptime size: usize, comptime constructor: fn (usize) type) type {
+    comptime var nodes: [size]type = undefined;
+    for (0..size) |i| {
+        nodes[i] = constructor(i);
+    }
+    return ParN(&nodes);
+}
+
+test "ParIter" {
+    const Anon = struct {
+        fn constructor(i: usize) type {
+            return IdTest(i + 1);
+        }
+    };
+
+    const N = ParIter(3, Anon.constructor);
+    try ee(6, N.in);
+    try ee(6, N.out);
+    var n = N{};
+    try ee([_]f32{ 1, 2, 3, 4, 5, 6 }, n.eval(.{ 1, 2, 3, 4, 5, 6 }));
+}
+
 // merge operator : reduce (add) A.Output to match B.Input
 pub fn Merge(comptime A: type, comptime B: type) type {
     // checking length
