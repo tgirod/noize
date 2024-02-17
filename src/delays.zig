@@ -2,8 +2,6 @@ const std = @import("std");
 const testing = std.testing;
 const ee = testing.expectEqual;
 
-pub usingnamespace @import("./operators.zig");
-
 /// delay line with a fixed size
 pub fn Mem(comptime size: usize) type {
     if (size == 0) {
