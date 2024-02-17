@@ -2,10 +2,8 @@ const std = @import("std");
 const testing = std.testing;
 const ee = testing.expectEqual;
 
-pub usingnamespace @import("./operators.zig");
-
 // Identity function
-fn Id(size: usize) type {
+pub fn Id(size: usize) type {
     return struct {
         pub const in = size;
         pub const out = size;

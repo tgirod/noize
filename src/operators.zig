@@ -9,26 +9,7 @@ const std = @import("std");
 const testing = std.testing;
 const ee = testing.expectEqual;
 
-// Id for testing purpose
-fn IdTest(size: usize) type {
-    return struct {
-        pub const in = size;
-        pub const out = size;
-        pub fn eval(_: *@This(), input: [in]f32) [out]f32 {
-            return input;
-        }
-    };
-}
-
-fn PlusOneTest() type {
-    return struct {
-        pub const in = 1;
-        pub const out = 1;
-        pub fn eval(_: *@This(), input: [in]f32) [out]f32 {
-            return .{input[0] + 1};
-        }
-    };
-}
+const base = @import("./base.zig");
 
 /// sequence operator, A --> B
 /// if A.out < B.in, spare inputs are added to Seq's inputs
@@ -67,7 +48,8 @@ fn Seq(comptime A: type, comptime B: type) type {
 }
 
 test "seq operator" {
-    const N = Seq(PlusOneTest(), PlusOneTest());
+    const PlusOne = base.MulAdd(1, 1);
+    const N = Seq(PlusOne, PlusOne);
     try ee(1, N.in);
     try ee(1, N.out);
     var n = N{};
@@ -77,13 +59,13 @@ test "seq operator" {
 }
 
 test "seq operator spare inputs" {
-    const N = Seq(IdTest(1), IdTest(2));
+    const N = Seq(base.Id(1), base.Id(2));
     try ee(2, N.in);
     try ee(2, N.out);
 }
 
 test "seq operator spare outputs" {
-    const N = Seq(IdTest(2), IdTest(1));
+    const N = Seq(base.Id(2), base.Id(1));
     try ee(2, N.in);
     try ee(2, N.out);
 }
@@ -101,7 +83,8 @@ pub fn SeqN(comptime Nodes: []const type) type {
 }
 
 test "SeqN" {
-    const N = SeqN(&[_]type{ PlusOneTest(), IdTest(2), IdTest(3) });
+    const PlusOne = base.MulAdd(1, 1);
+    const N = SeqN(&[_]type{ PlusOne, base.Id(2), base.Id(3) });
     try ee(3, N.in);
     try ee(3, N.out);
     var n = N{};
@@ -121,7 +104,7 @@ pub fn SeqIter(comptime size: usize, comptime constructor: fn (usize) type) type
 }
 
 test "SeqIter" {
-    const Add = Merge(IdTest(2), IdTest(1));
+    const Add = Merge(base.Id(2), base.Id(1));
     const Anon = struct {
         fn constructor(_: usize) type {
             return Add;
@@ -151,7 +134,7 @@ pub fn Par(comptime A: type, comptime B: type) type {
 }
 
 test "par operator" {
-    const N = Par(IdTest(2), IdTest(3));
+    const N = Par(base.Id(2), base.Id(3));
     try ee(5, N.in);
     try ee(5, N.out);
     var n = N{};
@@ -173,7 +156,7 @@ pub fn ParN(comptime Nodes: []const type) type {
 }
 
 test "parN" {
-    const N = ParN(&[_]type{ IdTest(1), IdTest(1), IdTest(1) });
+    const N = ParN(&[_]type{ base.Id(1), base.Id(1), base.Id(1) });
     try ee(3, N.in);
     try ee(3, N.out);
     var n = N{};
@@ -195,7 +178,7 @@ pub fn ParIter(comptime size: usize, comptime constructor: fn (usize) type) type
 test "ParIter" {
     const Anon = struct {
         fn constructor(i: usize) type {
-            return IdTest(i + 1);
+            return base.Id(i + 1);
         }
     };
 
@@ -236,7 +219,7 @@ pub fn Merge(comptime A: type, comptime B: type) type {
 }
 
 test "merge operator" {
-    const N = Merge(IdTest(4), IdTest(2));
+    const N = Merge(base.Id(4), base.Id(2));
     try ee(4, N.in);
     try ee(2, N.out);
     var n = N{};
@@ -273,7 +256,7 @@ pub fn Split(comptime A: type, comptime B: type) type {
 }
 
 test "split" {
-    const N = Split(IdTest(2), IdTest(4));
+    const N = Split(base.Id(2), base.Id(4));
     try ee(2, N.in);
     try ee(4, N.out);
     var n = N{};
@@ -319,13 +302,13 @@ pub fn Rec(comptime A: type, comptime B: type) type {
 }
 
 test "rec operator" {
-    const Sum = Merge(IdTest(2), IdTest(1));
+    const Sum = Merge(base.Id(2), base.Id(1));
     try ee(2, Sum.in);
     try ee(1, Sum.out);
-    const A = Split(Sum, IdTest(2));
+    const A = Split(Sum, base.Id(2));
     try ee(2, A.in);
     try ee(2, A.out);
-    const B = IdTest(1);
+    const B = base.Id(1);
     const N = Rec(A, B);
     try ee(1, N.in);
     try ee(1, N.out);
