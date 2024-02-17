@@ -20,6 +20,16 @@ fn IdTest(size: usize) type {
     };
 }
 
+fn PlusOneTest() type {
+    return struct {
+        pub const in = 1;
+        pub const out = 1;
+        pub fn eval(_: *@This(), input: [in]f32) [out]f32 {
+            return .{input[0] + 1};
+        }
+    };
+}
+
 /// sequence operator, A --> B
 /// if A.out < B.in, spare inputs are added to Seq's inputs
 /// if A.out > B.in, spare outputs are added to Seq's outputs
@@ -57,12 +67,12 @@ fn Seq(comptime A: type, comptime B: type) type {
 }
 
 test "seq operator" {
-    const N = Seq(IdTest(2), IdTest(2));
-    try ee(2, N.in);
-    try ee(2, N.out);
+    const N = Seq(PlusOneTest(), PlusOneTest());
+    try ee(1, N.in);
+    try ee(1, N.out);
     var n = N{};
-    const expected = [_]f32{ 23, 42 };
-    const output = n.eval(expected);
+    const expected = [_]f32{23 + 2};
+    const output = n.eval(.{23});
     try ee(expected, output);
 }
 
@@ -76,6 +86,28 @@ test "seq operator spare outputs" {
     const N = Seq(IdTest(2), IdTest(1));
     try ee(2, N.in);
     try ee(2, N.out);
+}
+
+/// apply Seq to a a slice of nodes
+pub fn SeqN(comptime Nodes: []const type) type {
+    return switch (Nodes.len) {
+        0 => @compileError("sequence at least two nodes"),
+        1 => Nodes[0],
+        2 => Seq(Nodes[0], Nodes[1]),
+        else => SeqN(
+            [_]type{Seq(Nodes[0], Nodes[1])} ++ Nodes[2..],
+        ),
+    };
+}
+
+test "SeqN" {
+    const N = SeqN(&[_]type{ PlusOneTest(), IdTest(2), IdTest(3) });
+    try ee(3, N.in);
+    try ee(3, N.out);
+    var n = N{};
+    const expected = [_]f32{ 24, 23, 23 };
+    const output = n.eval(.{ 23, 23, 23 });
+    try ee(expected, output);
 }
 
 /// parallel operator : combine A and B in parallel
@@ -99,6 +131,28 @@ test "par operator" {
     try ee(5, N.out);
     var n = N{};
     const expected = [_]f32{ 1, 2, 3, 4, 5 };
+    const output = n.eval(expected);
+    try ee(expected, output);
+}
+
+/// apply Par to a slice of nodes
+pub fn ParN(comptime Nodes: []const type) type {
+    return switch (Nodes.len) {
+        0 => @compileError("not enough nodes"),
+        1 => Nodes[0],
+        2 => Par(Nodes[0], Nodes[1]),
+        else => ParN(
+            .{Par(Nodes[0], Nodes[1])} ++ Nodes[2..],
+        ),
+    };
+}
+
+test "parN" {
+    const N = ParN(&[_]type{ IdTest(1), IdTest(1), IdTest(1) });
+    try ee(3, N.in);
+    try ee(3, N.out);
+    var n = N{};
+    const expected = [_]f32{ 23, 42, 66 };
     const output = n.eval(expected);
     try ee(expected, output);
 }
