@@ -59,3 +59,24 @@ test "MulAdd" {
     const output = n.eval(.{23});
     try ee(.{23 * 3 + 4}, output);
 }
+
+/// Always return the same values
+pub fn Const(comptime args: anytype) type {
+    const values: [args.len]f32 = args;
+
+    return struct {
+        pub const in = 0;
+        pub const out = values.len;
+        pub fn eval(_: *@This(), _: [in]f32) [out]f32 {
+            return values;
+        }
+    };
+}
+
+test "Const" {
+    const N = Const(.{ 1, 2, 3 });
+    try ee(3, N.out);
+    var n = N{};
+    const output = n.eval(.{});
+    try ee(.{ 1, 2, 3 }, output);
+}
