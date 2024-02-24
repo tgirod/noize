@@ -14,7 +14,7 @@ const base = @import("./base.zig");
 /// sequence operator, A --> B
 /// if A.out < B.in, spare inputs are added to Seq's inputs
 /// if A.out > B.in, spare outputs are added to Seq's outputs
-fn Seq(comptime A: type, comptime B: type) type {
+pub fn Seq(comptime A: type, comptime B: type) type {
     return struct {
         pub const in = if (A.out < B.in) A.in + B.in - A.out else A.in;
         pub const out = if (A.out > B.in) B.out + A.out - B.in else B.out;
