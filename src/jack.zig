@@ -1,17 +1,13 @@
 const std = @import("std");
 const testing = std.testing;
+const Tuple = std.meta.Tuple;
 const c = @cImport({
     @cInclude("jack/jack.h");
 });
 
-pub const ProcessCallback = ?*const fn (c.jack_nframes_t, ?*anyopaque) callconv(.C) c_int;
-
-pub const PortType = enum(c_ulong) {
-    AudioInput = c.JackPortIsInput,
-    AudioOutput = c.JackPortIsOutput,
-};
-
-pub fn Client(comptime I: usize, comptime O: usize) type {
+pub fn Client(RootNode: type) type {
+    const I = RootNode.Input.len;
+    const O = RootNode.Output.len;
     comptime var input_names: [I][*]const u8 = undefined;
     inline for (0..I) |i|
         input_names[i] = std.fmt.comptimePrint("in{d}", .{i});
@@ -21,19 +17,36 @@ pub fn Client(comptime I: usize, comptime O: usize) type {
         output_names[i] = std.fmt.comptimePrint("out{d}", .{i});
 
     return struct {
-        client: ?*c.jack_client_t = undefined,
+        root: RootNode = undefined,
+        client: *c.jack_client_t = undefined,
         status: c.jack_status_t = undefined,
         inputs: [I]?*c.jack_port_t = undefined,
         outputs: [O]?*c.jack_port_t = undefined,
 
         const Self = @This();
 
-        /// open new jack client
-        pub fn init(self: *Self, name: [*]const u8, cb: ProcessCallback) !void {
-            self.client = c.jack_client_open(name, c.JackNullOption, &self.status) orelse null;
-            if (self.client == null) {
-                return error.CannotOpenClient;
+        fn processCallback(nframes: u32, arg: ?*anyopaque) callconv(.C) c_int {
+            const client: *Self = @alignCast(@ptrCast(arg));
+            const input = client.inputBuffers(nframes);
+            const output = client.outputBuffers(nframes);
+            for (0..nframes) |i| {
+                const In = Tuple(&RootNode.Input);
+                const Out = Tuple(&RootNode.Output);
+                var in: In = undefined;
+                inline for (0..input.len) |j| {
+                    in[j] = input[j][i];
+                }
+                const out: Out = client.root.eval(in);
+                inline for (0..output.len) |j| {
+                    output[j][i] = out[j];
+                }
             }
+            return 0;
+        }
+
+        /// open new jack client
+        pub fn init(self: *Self, name: [*]const u8) !void {
+            self.client = c.jack_client_open(name, c.JackNullOption, &self.status) orelse return error.CannotOpenClient;
 
             // register input ports
             for (0..I) |i| {
@@ -47,7 +60,7 @@ pub fn Client(comptime I: usize, comptime O: usize) type {
                 if (self.outputs[i] == null) return error.CannotRegisterPort;
             }
 
-            if (c.jack_set_process_callback(self.client, cb, null) != 0) {
+            if (c.jack_set_process_callback(self.client, &processCallback, self) != 0) {
                 return error.CannotSetCallback;
             }
         }

@@ -63,33 +63,6 @@ pub fn Noize(comptime samplerate: usize) type {
 
         pub const step: f32 = 1 / @as(f32, @floatFromInt(samplerate));
 
-        /// root node, evaluates a complete frame
-        pub fn Root(comptime N: type) type {
-            return struct {
-                node: N = N{}, // root node
-
-                pub inline fn eval(
-                    self: *@This(),
-                    nframes: usize,
-                    input: [N.Input.len][]f32,
-                    output: [N.Output.len][]f32,
-                ) void {
-                    const In = Tuple(&N.Input);
-                    const Out = Tuple(&N.Output);
-                    for (0..nframes) |i| {
-                        var in: In = undefined;
-                        inline for (0..N.Input.len) |j| {
-                            in[j] = input[j][i];
-                        }
-                        const out: Out = self.node.eval(in);
-                        inline for (0..N.Output.len) |j| {
-                            output[j][i] = out[j];
-                        }
-                    }
-                }
-            };
-        }
-
         /// sequence operator, A --> B
         /// if A.Output > B.Input, spare outputs are added to Seq's outputs
         /// if A.Output < B.Input, spare inputs are added to Seq's inputs

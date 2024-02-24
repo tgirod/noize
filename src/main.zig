@@ -22,21 +22,12 @@ const Loopback = n.Rec(
 
 //
 
-const Root = n.Root(n.Stereo(Loopback));
-var root = Root{};
+const Root = n.Stereo(Loopback);
 
-fn processCallback(nframes: u32, arg: ?*anyopaque) callconv(.C) c_int {
-    _ = arg;
-    const input = client.inputBuffers(nframes);
-    const output = client.outputBuffers(nframes);
-    root.eval(nframes, input, output);
-    return 0;
-}
-
-var client: jack.Client(1, 2) = undefined;
+var client: jack.Client(Root) = undefined;
 
 pub fn main() !void {
-    try client.init("noize", &processCallback);
+    try client.init("noize");
     defer client.deinit();
     std.debug.print("init ok\n", .{});
 
