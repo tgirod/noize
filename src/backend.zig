@@ -4,7 +4,7 @@ const c = @cImport({
     @cInclude("jack/jack.h");
 });
 
-pub fn Client(comptime RootNode: type) type {
+pub fn Backend(comptime RootNode: type) type {
     comptime var input_names: [RootNode.in][*]const u8 = undefined;
     inline for (0..RootNode.in) |i|
         input_names[i] = std.fmt.comptimePrint("in{d}", .{i});
@@ -25,9 +25,6 @@ pub fn Client(comptime RootNode: type) type {
         const Self = @This();
 
         pub fn init(self: *Self, name: [*]const u8) !void {
-            // FIXME segfaulting here
-            // Segmentation fault at address 0x0
-            // ???:?:?: 0x0 in ??? (???)
             self.client = c.jack_client_open(
                 name,
                 c.JackNullOption,

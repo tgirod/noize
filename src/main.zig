@@ -4,7 +4,7 @@ const srate = 48000;
 
 const Root = n.Id(2);
 
-var back: n.jack.Client(Root) = undefined;
+var back: n.Backend(Root) = undefined;
 
 pub fn main() !void {
     try back.init("noize");
