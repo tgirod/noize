@@ -3,7 +3,7 @@ const std = @import("std");
 
 const srate = 48000;
 
-const Root = n.Id(2);
+const Root = n.Fork(n.Mem(srate));
 
 var back: n.Backend(Root) = undefined;
 
