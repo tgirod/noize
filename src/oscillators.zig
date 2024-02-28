@@ -7,8 +7,8 @@ pub fn Sin(srate: f32) type {
     const step: f32 = 1 / srate;
 
     return struct {
-        pub const in = 1;
-        pub const out = 1;
+        pub const in = 1; // frequency
+        pub const out = 1; // output
 
         phase: f32 = 0,
 
