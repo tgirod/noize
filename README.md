@@ -1,4 +1,6 @@
-making noise with zig. stated goals:
+Making noise with zig
+
+# Goals
 
 - learning the basics of zig
 - reimplementing the node diagram approach of [faust](https://faust.grame.fr/)
@@ -16,42 +18,22 @@ Evaluation is done by calling the eval function of the root node with an array s
 
 All nodes are defined at compile time. Operators check at comptime that combined nodes are compatible, input/output wise. Also, no memory is allocated during runtime which is kind of cool.
 
-Also, I guess it is possible to inline every eval function. I'm curious to see if there would be a performance gain.
+Noize uses [jack](https://jackaudio.org/) as a backend to access audio hardware.
 
-# TODO
+# Roadmap
 
-- [ ] trying to build a simple reverb : https://medium.com/the-seekers-project/coding-a-basic-reverb-algorithm-part-2-an-introduction-to-audio-programming-4db79dd4e325
-- [ ] FAUST's iteration syntax : https://faustdoc.grame.fr/manual/syntax/#iterations
-- [ ] methods to generate mermaid flowchart code
-- [ ] turn jack client into a backend type
-  - take a Node type as parameter
-  - adapt the number of inputs/outputs based on Node
-  - auto-connect with hardware ports
-- [ ] use liblo to expose OSC controls (use a node to define osc endpoint)
-- [ ] node inputs added as optionnals to the constructor
-  - if the value is set, input is replaced with constant value
-- [ ] wavetable (PORT FROM PREVIOUS VERSION)
-  - initialize with a size and a generator function
-  - generator function fills array from 0 to 1
-  - interpolation function
-- [ ] turn the project back to a library rather than exe
-- [ ] #someday parallelism : noize builds a tree of nodes - it would probably be possible to evaluate children in parallel.
-- [ ] #someday SIMD : audio servers usually ask for a sampleframe, not a sample individually. Turning those sampleframes into vectors and using SIMD instructions to process them all at once could be interesting.
-- [x] use ~libportaudio~ jack for audio
-- [x] Par and Seq with more than two nodes
-- [x] delay line
-- [x] delay line with parametric length
-- [x] buffer to read values
-- [x] sinewave oscillator
-- [x] sample rate (hardcoded)
-- [x] add tests everywhere
-  - how do I make sure the tests in noize.zig are run ?
-- [x] more than one kind of data passing around nodes : it would make sense to pass around integers or booleans, maybe even optional types to represent event based transmissions
-- [x] use comptime for the greater good
-  - typechecking inputs and outputs ?
-  - cool optimizations ?
+- [x] proof of concept, operators and basic nodes, audio backend
+- [ ] more examples in a separate folder instead of main.zig
+- [ ] add OSC endpoints to the backend
+- [ ] #syntax declare constant inputs at comptime
+- [ ] #syntax [FAUST's iterations](https://faustdoc.grame.fr/manual/syntax/#iterations)
+- [ ] node graph visualization
+- [ ] more basic nodes
+- [ ] [build a simple reverb](https://medium.com/the-seekers-project/coding-a-basic-reverb-algorithm-part-2-an-introduction-to-audio-programming-4db79dd4e325)
 
-# Fri Dec  8 22:17:47 CET 2023
+# Devlog
+
+## Fri Dec  8 22:17:47 CET 2023
 
 There is something crazy cool to do with tuples.
 
@@ -63,21 +45,21 @@ And now I can pass tuples from one eval call to the next. It is also possible to
 
 Experiment is [here](./exp/tuple.zig), but this approach is so promising, integrating it in the main code is the next step.
 
-# Sat Dec  9 20:26:46 CET 2023
+## Sat Dec  9 20:26:46 CET 2023
 
 The tuple experiment has been merged into the main codebase. Note that it raises a segfault at compile time with zig 0.11.0 but not with master.
 
-# Wed Dec 13 09:14:43 CET 2023
+## Wed Dec 13 09:14:43 CET 2023
 
 Interfacing with C is not easy. I'm almost there with jack - registering a client, opening input and output ports, running a process callback - but the C API is leaking everywhere.
 
 So in the end I'm writing jack bindings - but I guess someone already did the work ? I've just found https://machengine.org/pkg/mach-sysaudio/ and it looks like I could use that ...
 
-# Thu Dec 14 07:10:22 CET 2023
+## Thu Dec 14 07:10:22 CET 2023
 
 It's alive! the jack backend is working!
 
-# Fri Dec 15 15:33:22 CET 2023
+## Fri Dec 15 15:33:22 CET 2023
 
 Experimenting with @Vector. Audio backends are usually asking for samples in frames. Passing vector types as inputs and outputs and adapting the code accordingly would allow to process a whole frame at once and make good use of the SIMD capabilities of the processor.
 
@@ -85,7 +67,7 @@ But to define a vector, I have to know its length at comptime. It means I would 
 
 Also : so far, Sin is the only node that stores a variable internal state (its phase). This information led me to add a `step` parameter to the `eval` method, in order to pass this information around. Is it the right approach ?
 
-# Wed Dec 20 14:00:29 CET 2023
+## Wed Dec 20 14:00:29 CET 2023
 
 Things are generally working, which is cool. But I think having samplerate and framesize set at comptime would be more convenient.
 
@@ -93,13 +75,17 @@ For example, With delay max length declared at comptime, I have to declare it in
 
 Earlier I hesitated to declare those values at comptime because they are usually known at runtime. But worst case scenario, a program could defined a list of valid samplerates, and generate one `Noize(srate)` type for each, and use only one. That would only make the program a bit heavier.
 
-# Sun Dec 24 20:57:38 CET 2023
+## Sun Dec 24 20:57:38 CET 2023
 
 I experimented with vector types. Here is what I learned from it:
 
 - my first algorithm to vectorize oscillators was completely wrong. The phase shift is step*freq for each step of the vector, and freq can be variable. So, to compute the phase vector, I need a scan function to accumulate.
 - I did some performance testing, comparing using vector types with regular sample per sample approach, and vector types are slower. I'm probably doing something wrong?
 
-# Thu Feb 15 18:24:51 CET 2024
+## Thu Feb 15 18:24:51 CET 2024
 
 I should move back to a more simple implementation with arrays of f64 as inputs and outputs, and reorganize the code in a proper lib.
+
+## Wed Feb 28 23:42:06 CET 2024
+
+v0.1.0 released ! The code should be usable as a lib, and values passed around nodes are arrays of f32, like Faust.
