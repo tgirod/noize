@@ -4,7 +4,7 @@ const ee = std.testing.expectEqual;
 const n = @import("./root.zig");
 
 /// sinewave at the given frequency
-pub fn Sin(srate: f32) type {
+pub fn Sin(comptime srate: f32) type {
     const step: f32 = 1 / srate;
 
     return struct {

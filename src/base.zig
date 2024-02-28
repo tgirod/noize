@@ -3,7 +3,7 @@ const testing = std.testing;
 const ee = testing.expectEqual;
 
 // Identity function
-pub fn Id(size: usize) type {
+pub fn Id(comptime size: usize) type {
     return struct {
         pub const in = size;
         pub const out = size;
