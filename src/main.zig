@@ -3,14 +3,8 @@ const std = @import("std");
 
 const srate = 48000;
 
-fn Lfo(comptime low: f32, comptime high: f32) type {
-    const mul = (high - low) / 2; // target amplitude
-    const add = (high + low) / 2; // target midpoint
-    return n.Seq(n.Sin(srate), n.MulAdd(mul, add));
-}
-
 const Backward = n.Seq(
-    n.Seq(n.Const(.{0.1}), Lfo(0.1, 1.0)),
+    n.Seq(n.Const(.{0.1}), n.Lfo(srate, 0.1, 1.0)),
     n.Delay(48000, 2),
 );
 
