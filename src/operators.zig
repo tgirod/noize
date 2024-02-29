@@ -316,6 +316,6 @@ test "rec operator" {
     for (1..5) |i| {
         const exp: f32 = @floatFromInt(i);
         const out = n.eval(.{1});
-        try ee(.{exp}, out);
+        try ee([_]f32{exp}, out);
     }
 }

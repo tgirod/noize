@@ -27,12 +27,12 @@ pub fn Mem(comptime srate: f32, comptime length: f32) type {
 }
 
 test "Mem" {
-    const N = Mem(1);
+    const N = Mem(48000, 1.0 / 48000.0);
     var n = N{};
     const input = [_]f32{ 1, 2, 3, 4, 5 };
     const expected = [_]f32{ 0, 1, 2, 3, 4 };
     for (input, expected) |in, exp| {
-        const out = n.eval(.{in});
+        const out = n.eval([1]f32{in});
         try ee(exp, out[0]);
     }
 }
@@ -148,7 +148,7 @@ test "MultiDelay" {
     var n = N{};
     const input = [_]f32{ 1, 2, 3, 4, 5 };
     for (input) |in| {
-        const out = n.eval(.{ 0, 1 / srate, in });
-        try ee(.{ in, in - 1 }, out);
+        const out = n.eval([_]f32{ 0, 1 / srate, in });
+        try ee([_]f32{ in, in - 1 }, out);
     }
 }
