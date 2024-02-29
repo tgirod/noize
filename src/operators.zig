@@ -95,7 +95,7 @@ test "SeqN" {
 
 /// SeqIter calls `constructor` `size` times and combine the nodes in sequence
 /// each call receive the index of the iterator as argument
-pub fn SeqIter(comptime size: usize, comptime constructor: fn (usize) type) type {
+pub fn SeqIter(comptime size: usize, comptime constructor: fn (comptime usize) type) type {
     comptime var nodes: [size]type = undefined;
     for (0..size) |i| {
         nodes[i] = constructor(i);
@@ -106,7 +106,7 @@ pub fn SeqIter(comptime size: usize, comptime constructor: fn (usize) type) type
 test "SeqIter" {
     const Add = Merge(base.Id(2), base.Id(1));
     const Anon = struct {
-        fn constructor(_: usize) type {
+        fn constructor(comptime _: usize) type {
             return Add;
         }
     };
@@ -167,7 +167,7 @@ test "parN" {
 
 /// ParIter calls `constructor` `size` times and combine the nodes in parallel
 /// each call receive the index of the iterator as argument
-pub fn ParIter(comptime size: usize, comptime constructor: fn (usize) type) type {
+pub fn ParIter(comptime size: usize, comptime constructor: fn (comptime usize) type) type {
     comptime var nodes: [size]type = undefined;
     for (0..size) |i| {
         nodes[i] = constructor(i);
@@ -177,7 +177,7 @@ pub fn ParIter(comptime size: usize, comptime constructor: fn (usize) type) type
 
 test "ParIter" {
     const Anon = struct {
-        fn constructor(i: usize) type {
+        fn constructor(comptime i: usize) type {
             return base.Id(i + 1);
         }
     };
