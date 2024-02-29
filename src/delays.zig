@@ -3,10 +3,12 @@ const testing = std.testing;
 const ee = testing.expectEqual;
 
 /// delay line with a fixed size
-pub fn Mem(comptime size: usize) type {
-    if (size == 0) {
-        @compileError("size == 0");
+pub fn Mem(comptime srate: f32, comptime length: f32) type {
+    if (length <= 0) {
+        @compileError("length <= 0");
     }
+
+    const size: usize = @intFromFloat(srate * length);
 
     return struct {
         pub const in = 1;
