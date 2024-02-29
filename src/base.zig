@@ -80,3 +80,13 @@ test "Const" {
     const output = n.eval(.{});
     try ee(.{ 1, 2, 3 }, output);
 }
+
+pub fn Sum() type {
+    return struct {
+        pub const in = 2;
+        pub const out = 1;
+        pub fn eval(_: *@This(), input: [in]f32) [out]f32 {
+            return [_]f32{input[0] + input[1]};
+        }
+    };
+}
