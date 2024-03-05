@@ -6,16 +6,13 @@ const n = @import("root.zig");
 
 pub fn Comb(comptime srate: f32, comptime delay: f32, comptime gain: f32) type {
     const Feedback = n.Seq(n.Mem(srate, delay), n.MulAdd(gain, 0));
-    const Forward = n.Fork(n.Sum());
+    const Forward = n.Seq(n.Merge(2, 1), n.Split(1, 2));
     return n.Rec(Forward, Feedback);
 }
 
 // pub fn AllPass(comptime srate: f32, comptime delay: f32, comptime gain: f32) type {
-//     const Input = n.Id(1);
-//     _ = Input;
-//     const Forward = n.MulAdd(-gain);
+//     const NegativeForward = n.MulAdd(-gain);
 //     const Feedback = Comb(srate, delay, gain);
-//     const Main = n.Par(Forward, Feedback);
-//     _ = Main;
-//     n.Split(Input, Main)
+//     const Par = n.Par(NegativeForward, Feedback);
+//     return n.MergeOut(n.SplitIn(Par, 2), 2);
 // }
