@@ -48,8 +48,8 @@ pub fn Wavetable(srate: f32, buffer: []f32) type {
     };
 }
 
-pub fn Lfo(comptime srate: f32, comptime low: f32, comptime high: f32) type {
+pub fn Range(comptime low: f32, comptime high: f32) type {
     const mul = (high - low) / 2; // target amplitude
     const add = (high + low) / 2; // target midpoint
-    return n.Seq(Sin(srate), n.MulAdd(mul, add));
+    return n.MulAdd(mul, add);
 }
