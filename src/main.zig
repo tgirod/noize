@@ -3,7 +3,7 @@ const std = @import("std");
 
 const srate = 48000;
 
-const Backward = n.SeqN(&[_]type{
+const Backward = n.SeqN(.{
     n.Const(.{0.1}), // lfo frequency
     n.Sin(srate), // lfo
     n.Range(0.1, 1.0), // rescale lfo output to range [0.1, 1.0]
@@ -17,7 +17,7 @@ const Loopback = n.Rec(
     Backward,
 );
 
-const Comb = n.SeqN(&[_]type{
+const Comb = n.SeqN(.{
     n.Merge(2, 1),
     n.Mem(srate, 0.5),
     n.Comb(srate, 1.0 / 880.0, 0.9),

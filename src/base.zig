@@ -61,13 +61,18 @@ test "seq operator spare outputs" {
     try ee(2, N.out);
 }
 
-/// apply Seq to a a slice of nodes
-pub fn SeqN(comptime Nodes: []const type) type {
+/// apply Seq to a tuple of node types
+pub fn SeqN(comptime Nodes: anytype) type {
+    const NS: [Nodes.len]type = Nodes;
+    return _SeqN(&NS);
+}
+
+fn _SeqN(comptime Nodes: []const type) type {
     return switch (Nodes.len) {
         0 => @compileError("sequence at least two nodes"),
         1 => Nodes[0],
         2 => Seq(Nodes[0], Nodes[1]),
-        else => SeqN(
+        else => _SeqN(
             [_]type{Seq(Nodes[0], Nodes[1])} ++ Nodes[2..],
         ),
     };
@@ -75,7 +80,7 @@ pub fn SeqN(comptime Nodes: []const type) type {
 
 test "SeqN" {
     const PlusOne = MulAdd(1, 1);
-    const N = SeqN(&[_]type{ PlusOne, Id(2), Id(3) });
+    const N = SeqN(.{ PlusOne, Id(2), Id(3) });
     try ee(3, N.in);
     try ee(3, N.out);
     var n = N{};
@@ -109,20 +114,25 @@ test "par operator" {
     try ee(expected, output);
 }
 
-/// apply Par to a slice of nodes
-pub fn ParN(comptime Nodes: []const type) type {
+/// apply Par to a tuple of node types
+pub fn ParN(comptime Nodes: anytype) type {
+    const NS: [Nodes.len]type = Nodes;
+    return _ParN(&NS);
+}
+
+fn _ParN(comptime Nodes: []const type) type {
     return switch (Nodes.len) {
         0 => @compileError("not enough nodes"),
         1 => Nodes[0],
         2 => Par(Nodes[0], Nodes[1]),
-        else => ParN(
+        else => _ParN(
             .{Par(Nodes[0], Nodes[1])} ++ Nodes[2..],
         ),
     };
 }
 
 test "parN" {
-    const N = ParN(&[_]type{ Id(1), Id(1), Id(1) });
+    const N = ParN(.{ Id(1), Id(1), Id(1) });
     try ee(3, N.in);
     try ee(3, N.out);
     var n = N{};
