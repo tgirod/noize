@@ -558,3 +558,34 @@ pub fn AllPass(comptime srate: f32, comptime delay: f32, comptime gain: f32) typ
         Merge(2, 1),
     });
 }
+
+/// Perlin noise (single octave)
+pub fn Perlin(comptime srate: f32) type {
+    const step: f32 = 1 / srate;
+
+    return struct {
+        pub const in = 1; // frequency
+        pub const out = 1; // signal
+
+        phase: f32 = 0,
+        loSlope: f32 = rand() * 2 - 1,
+        hiSlope: f32 = rand() * 2 - 1,
+
+        pub fn eval(self: *@This(), input: [in]f32) [out]f32 {
+            const d = self.phase;
+            _ = input;
+            const loPos = self.loSlope * d;
+            const hiPos = -self.hiSlope * (1 - d);
+            const u = d * d * (3.0 - 2.0 * d);
+            const output = (loPos * (1 - u)) + (hiPos * u);
+            self.phase += step;
+            if (self.phase >= 1.0) {
+                self.phase -= 1.0;
+                self.loSlope = self.hiSlope;
+                self.hiSlope = rand() * 2 - 1;
+            }
+
+            return .{output};
+        }
+    };
+}
