@@ -89,3 +89,11 @@ I should move back to a more simple implementation with arrays of f64 as inputs 
 ## Wed Feb 28 23:42:06 CET 2024
 
 v0.1.0 released ! The code should be usable as a lib, and values passed around nodes are arrays of f32, like Faust.
+
+## Wed Apr  3 16:59:12 CEST 2024
+
+What about buffers ?
+
+I could create a node that takes a buffer address at comptime, and write its input in the buffer, looping over when reaching the end. That writer should output its current write index. Other nodes could access this buffer and read it in various ways. A buffer of length=1 is a special case where one can store a node's output at a memory address, so other nodes can access it.
+
+I think decoupling buffers that way is a good move. But comptime known length can be limiting ...
