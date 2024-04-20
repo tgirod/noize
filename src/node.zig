@@ -1,6 +1,11 @@
 const std = @import("std");
 const testing = std.testing;
 const ee = testing.expectEqual;
+const t = @import("testing.zig");
+
+fn expectOutput(comptime length: usize, expected: [length]f32, actual: [length]f32) !void {
+    try testing.expectEqualSlices(f32, &expected, &actual);
+}
 
 /// for testing purpose
 fn Id(comptime size: usize) type {
@@ -103,9 +108,7 @@ test "seq operator" {
     try ee(1, N.in);
     try ee(1, N.out);
     var n = N{};
-    const expected = [_]f32{23 + 2};
-    const output = n.eval(.{23});
-    try ee(expected, output);
+    try t.expectOutput(1, .{23 + 2}, n.eval(.{23}));
 }
 
 test "seq operator spare inputs" {
@@ -145,7 +148,7 @@ test "par operator" {
     var n = N{};
     const expected = [_]f32{ 1, 2, 3, 4, 5 };
     const output = n.eval(expected);
-    try ee(expected, output);
+    try t.expectOutput(5, expected, output);
 }
 
 /// recursive operator
@@ -198,7 +201,7 @@ test "rec operator" {
     for (1..5) |i| {
         const exp: f32 = @floatFromInt(i);
         const out = n.eval(.{1});
-        try ee([_]f32{exp}, out);
+        try t.expectOutput(1, .{exp}, out);
     }
 }
 
@@ -239,7 +242,7 @@ test "split" {
     const input = [_]f32{ 1, 2 };
     const expected = [_]f32{ 1, 2, 1, 2 };
     const output = n.eval(input);
-    try ee(expected, output);
+    try t.expectOutput(4, expected, output);
 }
 
 // merge operator : reduce (add) A.Output to match B.Input
@@ -282,5 +285,5 @@ test "merge operator" {
     const input = [_]f32{ 1, 2, 3, 4 };
     const expected = [_]f32{ 4, 6 };
     const output = n.eval(input);
-    try ee(expected, output);
+    try t.expectOutput(2, expected, output);
 }

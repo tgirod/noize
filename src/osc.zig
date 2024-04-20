@@ -1,6 +1,4 @@
 const std = @import("std");
-const testing = std.testing;
-const ee = testing.expectEqual;
 const node = @import("./node.zig");
 
 /// sinewave at the given frequency

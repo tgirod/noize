@@ -1,6 +1,7 @@
 const std = @import("std");
 const testing = std.testing;
 const ee = testing.expectEqual;
+const t = @import("testing.zig");
 
 const node = @import("./node.zig");
 
@@ -23,8 +24,7 @@ test "Id" {
     try ee(2, N.in);
     try ee(2, N.out);
     var n = N{};
-    const output = n.eval(.{ 23, 42 });
-    try ee(.{ 23, 42 }, output);
+    try t.expectOutput(2, .{ 23, 42 }, n.eval(.{ 23, 42 }));
 }
 
 /// for testing purpose
@@ -45,8 +45,7 @@ pub fn MulAdd(comptime mul: f32, comptime add: f32) type {
 test "MulAdd" {
     const N = MulAdd(23, 42);
     var n = N{};
-    const output = n.eval(.{1});
-    try ee(.{1 * 23 + 42}, output);
+    try t.expectOutput(1, .{1 * 23 + 42}, n.eval(.{1}));
 }
 
 /// Always return the same values
@@ -70,14 +69,21 @@ test "Const" {
     const N = Const(.{ 1, 2, 3 });
     try ee(3, N.out);
     var n = N{};
-    const output = n.eval(.{});
-    try ee(.{ 1, 2, 3 }, output);
+    try t.expectOutput(3, .{ 1, 2, 3 }, n.eval(.{}));
 }
 
+/// rescale a value in range [-1,+1] to range [low,high]
 pub fn Range(comptime low: f32, comptime high: f32) type {
     const mul = (high - low) / 2; // target amplitude
     const add = (high + low) / 2; // target midpoint
     return MulAdd(mul, add);
+}
+
+test "Range" {
+    const N = Range(23, 42);
+    var n = N{};
+    try t.expectOutput(1, .{23}, n.eval(.{-1}));
+    try t.expectOutput(1, .{42}, n.eval(.{1}));
 }
 
 /// delay line with a fixed size
@@ -113,7 +119,6 @@ test "Mem" {
     const input = [_]f32{ 1, 2, 3, 4, 5 };
     const expected = [_]f32{ 0, 1, 2, 3, 4 };
     for (input, expected) |in, exp| {
-        const out = n.eval([1]f32{in});
-        try ee(exp, out[0]);
+        try t.expectOutput(1, .{exp}, n.eval(.{in}));
     }
 }

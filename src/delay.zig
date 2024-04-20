@@ -2,6 +2,7 @@ const std = @import("std");
 const testing = std.testing;
 const ee = testing.expectEqual;
 const node = @import("./node.zig");
+const t = @import("testing.zig");
 
 /// delay line with dynamic length (maximum size defined at comptime)
 pub fn Delay(comptime srate: f32, comptime maxLength: f32) type {
@@ -15,17 +16,17 @@ pub fn Delay(comptime srate: f32, comptime maxLength: f32) type {
         const Self = @This();
         pub usingnamespace node.NodeInterface(Self);
 
-        pub const in = 2; // length, input
+        pub const in = 2; // input, length
         pub const out = 1; // output
 
         mem: [size]f32 = [1]f32{0} ** size,
         pos: usize = 0,
 
-        pub inline fn eval(self: *Self, input: [in]f32) [out]f32 {
+        pub fn eval(self: *Self, input: [in]f32) [out]f32 {
             // write input into the memory
-            self.mem[self.pos] = input[1];
+            self.mem[self.pos] = input[0];
             // compute delay length
-            const length: i64 = @intFromFloat(input[0] * srate);
+            const length: i64 = @intFromFloat(input[1] * srate);
             const delay: usize = @intCast(@mod(@as(i64, @intCast(self.pos)) - length, size));
             // read `delay` samples before current position
             const read = self.mem[delay];
@@ -43,8 +44,7 @@ test "Delay length 0" {
     const input = [_]f32{ 1, 2, 3, 4, 5 };
     const expected = [_]f32{ 1, 2, 3, 4, 5 };
     for (input, expected) |in, exp| {
-        const out = n.eval(.{ 0, in });
-        try ee(exp, out[0]);
+        try t.expectOutput(1, .{exp}, n.eval(.{ 0, in }));
     }
 }
 
@@ -55,8 +55,7 @@ test "Delay length 1 sample" {
     const input = [_]f32{ 1, 2, 3, 4, 5 };
     const expected = [_]f32{ 0, 1, 2, 3, 4 };
     for (input, expected) |in, exp| {
-        const out = n.eval(.{ 1 / srate, in });
-        try ee(exp, out[0]);
+        try t.expectOutput(1, .{exp}, n.eval(.{ 1 / srate, in }));
     }
 }
 
@@ -67,8 +66,7 @@ test "Delay length increasing" {
     const input = [_]f32{ 0, 1, 2, 3, 4 };
     const expected = [_]f32{ 0, 0, 0, 0, 0 };
     for (input, expected) |in, exp| {
-        const out = n.eval(.{ in / srate, in });
-        try ee(exp, out[0]);
+        try t.expectOutput(1, .{exp}, n.eval(.{ 1 / srate, in }));
     }
 }
 
@@ -93,7 +91,7 @@ pub fn MultiDelay(comptime srate: f32, comptime maxLength: f32, comptime taps: u
         mem: [size]f32 = [1]f32{0} ** size,
         pos: usize = 0,
 
-        pub inline fn eval(self: *Self, input: [in]f32) [out]f32 {
+        pub fn eval(self: *Self, input: [in]f32) [out]f32 {
             // write input into the memory
             self.mem[self.pos] = input[in - 1];
 
@@ -120,7 +118,6 @@ test "MultiDelay" {
     var n = N{};
     const input = [_]f32{ 1, 2, 3, 4, 5 };
     for (input) |in| {
-        const out = n.eval([_]f32{ 0, 1 / srate, in });
-        try ee([_]f32{ in, in - 1 }, out);
+        try t.expectOutput(2, .{ in, in - 1 }, n.eval(.{ 0, 1 / srate, in }));
     }
 }
