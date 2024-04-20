@@ -3,28 +3,22 @@ const std = @import("std");
 
 const srate = 48000;
 
-const Backward = n.SeqN(.{
-    n.Const(.{0.1}), // lfo frequency
-    n.Sin(srate), // lfo
-    n.Range(0.1, 1.0), // rescale lfo output to range [0.1, 1.0]
-    n.Delay(48000, 1), // variable delay
-});
+const Feedback = n.Const(.{0.1})
+    .seq(n.Sin(srate))
+    .seq(n.Range(0.1, 1.0))
+    .seq(n.Delay(48000, 1));
 
-const Forward = n.Seq(n.Merge(2, 1), n.Split(1, 2));
+const Forward = n.Id(2)
+    .merge(n.Id(1))
+    .split(n.Id(2));
 
-const Loopback = n.Rec(
-    Forward,
-    Backward,
-);
+const Loopback = Forward.rec(Feedback);
 
-const Comb = n.SeqN(.{
-    n.Merge(2, 1),
-    n.Mem(srate, 0.5),
-    n.Comb(srate, 1.0 / 880.0, 0.9),
-    n.Split(1, 2),
-});
+const Comb = n.Id(2)
+    .merge(n.Mem(srate, 0.5))
+    .seq(n.Comb(srate, 1.0 / 880.0, 0.9))
+    .split(n.Id(2));
 
-// var back: n.Backend(n.Fork(Loopback)) = undefined;
 var back: n.Backend(Loopback) = undefined;
 
 pub fn main() !void {

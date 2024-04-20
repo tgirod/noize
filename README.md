@@ -97,3 +97,33 @@ What about buffers ?
 I could create a node that takes a buffer address at comptime, and write its input in the buffer, looping over when reaching the end. That writer should output its current write index. Other nodes could access this buffer and read it in various ways. A buffer of length=1 is a special case where one can store a node's output at a memory address, so other nodes can access it.
 
 I think decoupling buffers that way is a good move. But comptime known length can be limiting ...
+
+## Sat Apr 20 15:56:39 CEST 2024
+
+Recently I discovered [fluent](https://github.com/andrewCodeDev/Fluent) - a lib to do slice manipulations with function chaining. I found their approach so elegant I had to use it for noize.
+
+Now, operators are methods of node types. For example, if you wanted to build this:
+
+```mermaid
+graph LR
+    A --> C;
+    B --> C;
+```
+
+With the previous API, it would be:
+
+```zig
+noize.Seq(noize.Par(A,B), C);
+```
+
+With the new API, it becomes:
+
+```zig
+A.par(B).seq(C);
+```
+
+To achieve that, you just have to add the following line in your node definition, and it will inherit all the apropriate methods:
+
+```zig
+pub usingnamespace noize.NodeInterface(@This())
+```
