@@ -16,7 +16,7 @@ pub fn build(b: *std.Build) void {
     const optimize = b.standardOptimizeOption(.{});
 
     _ = b.addModule("noize", .{
-        .source_file = .{ .path = "src/root.zig" },
+        .root_source_file = .{ .path = "src/root.zig" },
     });
 
     const lib = b.addStaticLibrary(.{
