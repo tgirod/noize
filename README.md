@@ -127,3 +127,24 @@ To achieve that, you just have to add the following line in your node definition
 ```zig
 pub usingnamespace noize.NodeInterface(@This())
 ```
+
+## 2024-05-27 : rethinking things entirely
+
+Sometimes, you want muliple nodes to share some data - for example, one node is filling a buffer with audio input, while multiple nodes are reading from the same buffer.
+
+Unfortunately, my approach with comptime defined computational graph makes it tricky to do - if I create a node `Buffer(200)`, an array of `[200]f32` will be attached every time a node of that type is created, but I failed to find a way to access that memory from elsewhere - all I can do is pass data around through the node's inputs and outputs.
+
+But what if my nodes could pass around more than `f32` ? Say, arbitrary data, as I was doing originally? **If you can do that, you can pass around a pointer to a buffer!**
+
+Suddenly, a lot of things are possible. Our buffer of `f32` takes two inputs: the address of the buffer, and the value to write. It returns the index of the last value written.
+
+Want to build a multi-tap delay? Just write the audio input in a buffer, define a `Tap` that takes a buffer address, a write index and a delay time, and add as many as you need to your graph.
+
+Want to read audio from a file? Just fill a buffer with the file's content, and pass the buffer's address to the Node that will read it! Loading can even happen in a separate thread, so we don't allocate memory in the audio rendering thread.
+
+Arbitrary inputs and outputs opens up many other possibilities. Here is a non-exhaustive list:
+
+- trigger with a boolean
+- enums to choose a value in a discrete list
+- optionals to express events ?
+
