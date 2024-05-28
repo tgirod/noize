@@ -1,7 +1,9 @@
 const n = @import("./root.zig");
 const std = @import("std");
 
-// const srate = 48000;
+const srate = 48000;
+
+usingnamespace @import("root.zig");
 
 // const Feedback = n.Const(.{0.1})
 //     .seq(n.Sin(srate))
@@ -21,23 +23,22 @@ const std = @import("std");
 
 // var back: n.Backend(Loopback) = undefined;
 
-const S = n.Sin(48000);
+const Root = n.Const(@as(f32, 440))
+    .seq(n.Sin(srate))
+    .seq(n.MulAdd(0.5, 0));
+
+const Back = n.Backend(Root);
 
 pub fn main() !void {
-    var s: S = undefined;
-    s.init();
-    for (0..100) |_| {
-        const out = s.eval(.{480});
-        std.debug.print("{any}\n", .{out[0]});
+    var back = Back{};
+    try back.init("noize");
+    defer back.deinit();
+
+    try back.connect();
+    try back.activate();
+    defer back.deactivate();
+
+    while (true) {
+        std.time.sleep(std.time.ns_per_s);
     }
-    // try back.init("noize");
-    // defer back.deinit();
-
-    // try back.connect();
-    // try back.activate();
-    // defer back.deactivate();
-
-    // while (true) {
-    //     std.time.sleep(std.time.ns_per_s);
-    // }
 }

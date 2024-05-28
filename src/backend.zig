@@ -4,27 +4,34 @@ const c = @cImport({
     @cInclude("jack/jack.h");
 });
 
-pub fn Backend(comptime RootNode: type) type {
-    comptime var input_names: [RootNode.in][*]const u8 = undefined;
-    inline for (0..RootNode.in) |i|
+const tup = @import("tup.zig");
+
+pub fn Backend(RootNode: type) type {
+    const in = tup.len(RootNode.Input);
+    const out = tup.len(RootNode.Output);
+
+    // TODO assert inputs and outputs are f32
+
+    comptime var input_names: [in][*]const u8 = undefined;
+    inline for (0..in) |i|
         input_names[i] = std.fmt.comptimePrint("in{d}", .{i});
 
-    comptime var output_names: [RootNode.out][*]const u8 = undefined;
-    inline for (0..RootNode.out) |i|
+    comptime var output_names: [out][*]const u8 = undefined;
+    inline for (0..out) |i|
         output_names[i] = std.fmt.comptimePrint("out{d}", .{i});
 
     return struct {
-        root: RootNode = undefined,
         client: *c.jack_client_t = undefined,
         status: c.jack_status_t = undefined,
-        inputs: [RootNode.in]*c.jack_port_t = undefined,
-        outputs: [RootNode.out]*c.jack_port_t = undefined,
+        inputs: [in]*c.jack_port_t = undefined,
+        outputs: [out]*c.jack_port_t = undefined,
 
-        const in = RootNode.in;
-        const out = RootNode.out;
+        root: RootNode = undefined,
         const Self = @This();
 
         pub fn init(self: *Self, name: [*]const u8) !void {
+            self.root.init();
+
             self.client = c.jack_client_open(
                 name,
                 c.JackNullOption,
@@ -53,6 +60,7 @@ pub fn Backend(comptime RootNode: type) type {
                 ) orelse return error.CannotRegisterOutputPort;
             }
 
+            // set process callback
             if (c.jack_set_process_callback(self.client, &callback, self) != 0) {
                 return error.CannotSetCallback;
             }
@@ -130,8 +138,8 @@ pub fn Backend(comptime RootNode: type) type {
             }
 
             // evaluate the frames
-            var input: [in]f32 = undefined;
-            var output: [out]f32 = undefined;
+            var input: RootNode.Input = undefined;
+            var output: RootNode.Output = undefined;
             for (0..nframes) |frame| {
                 // extract current frame from input buffers
                 inline for (0..in) |channel| {

@@ -1,117 +1,15 @@
 const std = @import("std");
+
 const testing = std.testing;
 const expect = std.testing.expect;
 const expectEqual = std.testing.expectEqual;
 const Tuple = std.meta.Tuple;
 
+const tup = @import("tup.zig");
+pub usingnamespace @import("backend.zig");
+
 test "test dispatch" {
     testing.refAllDecls(@This());
-}
-
-/// check if two tuple types are identical
-fn eq(comptime A: type, comptime B: type) bool {
-    // TODO check A and B are tuples
-    const fa = std.meta.fields(A);
-    const fb = std.meta.fields(B);
-    if (fa.len != fb.len) {
-        return false;
-    }
-    inline for (fa, fb) |a, b| {
-        if (a.type != b.type) {
-            return false;
-        }
-    }
-    return true;
-}
-
-test "eq" {
-    const A = struct { f32, u8 };
-    const B = struct { f32, u8 };
-    const C = struct { u8, f32 };
-    const D = struct { u8 };
-    try expect(eq(A, A));
-    try expect(eq(A, B));
-    try expect(!eq(A, C));
-    try expect(!eq(A, D));
-}
-
-/// returns the length of a tuple type
-fn len(comptime A: type) usize {
-    return std.meta.fields(A).len;
-}
-
-test "len" {
-    const A = struct { u8, f32 };
-    const B = struct { u8 };
-    try expectEqual(2, len(A));
-    try expectEqual(1, len(B));
-}
-
-/// concatenate two tuple types
-fn Join(A: type, B: type) type {
-    const a: A = undefined;
-    const b: B = undefined;
-    return @TypeOf(a ++ b);
-}
-
-test "Join" {
-    const A = struct { f32 = 0 };
-    const B = struct { u8 = 0, bool = false };
-    const AB = Join(A, B);
-    const ab: AB = undefined;
-    try expectEqual(3, ab.len);
-    try expectEqual(f32, @TypeOf(ab[0]));
-    try expectEqual(u8, @TypeOf(ab[1]));
-    try expectEqual(bool, @TypeOf(ab[2]));
-}
-
-/// split a tuple type in two at pivot point
-fn Split(T: type, pivot: usize) type {
-    const fields = std.meta.fields(T);
-    std.debug.assert(pivot <= fields.len);
-    var types_a: [pivot]type = undefined;
-    var types_b: [fields.len - pivot]type = undefined;
-    for (fields, 0..) |f, i| {
-        if (i < pivot) {
-            types_a[i] = f.type;
-        } else {
-            types_b[i - pivot] = f.type;
-        }
-    }
-    const Tuple_a = Tuple(&types_a);
-    const Tuple_b = Tuple(&types_b);
-    return struct { Tuple_a, Tuple_b };
-}
-
-test "Split" {
-    const AB = Split(struct { f32, u8, bool }, 1);
-    const ab: AB = undefined;
-    try expectEqual(1, ab[0].len);
-    try expectEqual(2, ab[1].len);
-    try expectEqual(f32, @TypeOf(ab[0][0]));
-    try expectEqual(u8, @TypeOf(ab[1][0]));
-    try expectEqual(bool, @TypeOf(ab[1][1]));
-}
-
-/// split a tuple at pivot point
-fn split(tuple: anytype, comptime pivot: usize) Split(@TypeOf(tuple), pivot) {
-    var sp: Split(@TypeOf(tuple), pivot) = undefined;
-    inline for (tuple, 0..) |value, index| {
-        if (index < pivot) {
-            sp[0][index] = value;
-        } else {
-            sp[1][index - pivot] = value;
-        }
-    }
-    return sp;
-}
-
-test "split" {
-    const tuple: struct { u8, f32, bool } = .{ 1, 2, false };
-    const sp = split(tuple, 1);
-    try expectEqual(@as(u8, 1), sp[0][0]);
-    try expectEqual(@as(f32, 2), sp[1][0]);
-    try expectEqual(@as(bool, false), sp[1][1]);
 }
 
 /// add NodeInterface to a node's namespace in order to add useful methods
@@ -137,8 +35,8 @@ fn Par(A: type, B: type) type {
         pub usingnamespace NodeInterface(Self);
         const Self = @This();
 
-        pub const Input = Join(A.Input, B.Input);
-        pub const Output = Join(A.Output, B.Output);
+        pub const Input = tup.Join(A.Input, B.Input);
+        pub const Output = tup.Join(A.Output, B.Output);
 
         a: A = undefined,
         b: B = undefined,
@@ -149,7 +47,7 @@ fn Par(A: type, B: type) type {
         }
 
         pub fn eval(self: *Self, input: Input) Output {
-            const sp = split(input, len(A.Input));
+            const sp = tup.split(input, tup.len(A.Input));
             return self.a.eval(sp[0]) ++ self.b.eval(sp[1]);
         }
     };
@@ -169,14 +67,14 @@ fn Seq(comptime A: type, comptime B: type) type {
         pub usingnamespace NodeInterface(Self);
         const Self = @This();
 
-        const diff = @as(comptime_int, len(A.Output)) - @as(comptime_int, len(B.Input));
+        const diff = @as(comptime_int, tup.len(A.Output)) - @as(comptime_int, tup.len(B.Input));
 
         pub const Input = init: {
             if (diff < 0) {
                 // add spare inputs of B
-                const sp: Split(B.Input, len(A.Output)) = undefined;
-                std.debug.assert(eq(@TypeOf(sp[0]), A.Output));
-                break :init Join(A.Input, @TypeOf(sp[1]));
+                const sp: tup.Split(B.Input, tup.len(A.Output)) = undefined;
+                std.debug.assert(tup.eq(@TypeOf(sp[0]), A.Output));
+                break :init tup.Join(A.Input, @TypeOf(sp[1]));
             } else {
                 break :init A.Input;
             }
@@ -185,9 +83,9 @@ fn Seq(comptime A: type, comptime B: type) type {
         pub const Output = init: {
             if (diff > 0) {
                 // add spare outputs of A
-                const sp: Split(A.Output, len(B.Input)) = undefined;
-                std.debug.assert(eq(@TypeOf(sp[0]), B.Input));
-                break :init Join(B.Output, @TypeOf(sp[1]));
+                const sp: tup.Split(A.Output, tup.len(B.Input)) = undefined;
+                std.debug.assert(tup.eq(@TypeOf(sp[0]), B.Input));
+                break :init tup.Join(B.Output, @TypeOf(sp[1]));
             } else {
                 break :init B.Output;
             }
@@ -204,7 +102,7 @@ fn Seq(comptime A: type, comptime B: type) type {
         pub fn eval(self: *Self, input: Input) Output {
             if (diff < 0) {
                 // spare inputs of B are routed from the main input
-                const sp = split(input, len(A.Input));
+                const sp = tup.split(input, tup.len(A.Input));
                 const input_a: A.Input = sp[0];
                 const spare = sp[1];
                 const output_a: A.Output = self.a.eval(input_a);
@@ -213,7 +111,7 @@ fn Seq(comptime A: type, comptime B: type) type {
             } else if (diff > 0) {
                 // spare outputs of A are routed to the main output
                 const output_a: A.Output = self.a.eval(input);
-                const sp = split(output_a, len(B.Input));
+                const sp = tup.split(output_a, tup.len(B.Input));
                 const input_b: B.Input = sp[0];
                 const spare = sp[1];
                 const output_b: B.Output = self.b.eval(input_b);
@@ -236,8 +134,8 @@ test "seq - spare inputs" {
     const A = Id(u8);
     const B = Id(u8).par(Id(bool));
     const N = A.seq(B);
-    try expectEqual(2, len(N.Input));
-    try expectEqual(2, len(N.Output));
+    try expectEqual(2, tup.len(N.Input));
+    try expectEqual(2, tup.len(N.Output));
     var n = N{};
     n.init();
     try expectEqual(.{ 23, false }, n.eval(.{ 23, false }));
@@ -247,12 +145,12 @@ test "seq - spare outputs" {
     const A = Id(u8).par(Id(bool));
     const B = Id(u8);
     const N = A.seq(B);
-    try expectEqual(2, len(N.Input));
-    try expectEqual(2, len(N.Output));
+    try expectEqual(2, tup.len(N.Input));
+    try expectEqual(2, tup.len(N.Output));
     var n = N{};
     n.init();
     try expectEqual(.{ 23, false }, n.eval(.{ 23, false }));
-    try expectEqual(2, len(N.Output));
+    try expectEqual(2, tup.len(N.Output));
 }
 
 /// recursive operator : loop A --> B --> A
@@ -260,14 +158,14 @@ test "seq - spare outputs" {
 /// spare inputs of A are exposed as inputs of Rec
 /// spare outputs of A are exposed as outputs of Rec
 fn Rec(comptime A: type, comptime B: type) type {
-    std.debug.assert(len(B.Input) < len(A.Output));
-    std.debug.assert(len(B.Output) < len(A.Input));
+    std.debug.assert(tup.len(B.Input) < tup.len(A.Output));
+    std.debug.assert(tup.len(B.Output) < tup.len(A.Input));
 
-    const split_input: Split(A.Input, len(B.Output)) = undefined;
-    std.debug.assert(eq(B.Output, @TypeOf(split_input[0])));
+    const split_input: tup.Split(A.Input, tup.len(B.Output)) = undefined;
+    std.debug.assert(tup.eq(B.Output, @TypeOf(split_input[0])));
 
-    const split_output: Split(A.Output, len(B.Input)) = undefined;
-    std.debug.assert(eq(B.Input, @TypeOf(split_output[0])));
+    const split_output: tup.Split(A.Output, tup.len(B.Input)) = undefined;
+    std.debug.assert(tup.eq(B.Input, @TypeOf(split_output[0])));
 
     return struct {
         const Self = @This();
@@ -294,7 +192,7 @@ fn Rec(comptime A: type, comptime B: type) type {
             // evaluate A
             const output_a = self.a.eval(input_a);
             // store first part into mem, return second part
-            const sp = split(output_a, len(B.Input));
+            const sp = tup.split(output_a, tup.len(B.Input));
             self.mem = sp[0];
             return sp[1];
         }
@@ -316,14 +214,42 @@ test "rec" {
     };
 
     const N = Rec(Cross, Id(u8));
-    try expectEqual(1, len(N.Input));
-    try expectEqual(1, len(N.Output));
+    try expectEqual(1, tup.len(N.Input));
+    try expectEqual(1, tup.len(N.Output));
 
     var n: N = undefined;
     n.init();
     try expectEqual(.{1}, n.eval(.{1}));
     try expectEqual(.{1}, n.mem);
     try expectEqual(.{2}, n.eval(.{1}));
+}
+
+fn Fork(A: type, B: type, comptime size: usize) type {
+    return struct {
+        const Self = @This();
+        pub usingnamespace NodeInterface(Self);
+
+        // FIXME il devrait y avoir aussi les entrées surnuméraire de B
+        pub const Input = A.Input;
+        pub const Output = init: {
+            const out: B.Output = undefined;
+            break :init @TypeOf(out ** size);
+        };
+
+        // TODO assert compatibility between A.Output and B.Input
+
+        array: [size]B = undefined,
+
+        pub fn init(self: *Self) void {
+            for (0..size) |i| {
+                self.array[i].init();
+            }
+        }
+
+        pub fn eval(_: *Self, input: Input) Output {
+            return input;
+        }
+    };
 }
 
 /// simplest node : identity function
