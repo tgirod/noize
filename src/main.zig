@@ -23,9 +23,11 @@ usingnamespace @import("root.zig");
 
 // var back: n.Backend(Loopback) = undefined;
 
-const Root = n.Const(@as(f32, 440))
+const Root =
+    n.Const(@as(f32, 440))
     .seq(n.Sin(srate))
-    .seq(n.MulAdd(0.5, 0));
+    .seq(n.MulAdd(0.5, 0))
+    .dup(2);
 
 const Back = n.Backend(Root);
 

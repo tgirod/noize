@@ -26,6 +26,10 @@ pub fn NodeInterface(comptime Self: type) type {
         pub fn rec(comptime Feedback: type) type {
             return Rec(Self, Feedback);
         }
+
+        pub fn dup(comptime size: usize) type {
+            return Dup(Self, size);
+        }
     };
 }
 
@@ -222,6 +226,31 @@ test "rec" {
     try expectEqual(.{1}, n.eval(.{1}));
     try expectEqual(.{1}, n.mem);
     try expectEqual(.{2}, n.eval(.{1}));
+}
+
+// duplicate outputs of N size times
+pub fn Dup(N: type, comptime size: usize) type {
+    return struct {
+        const Self = @This();
+        pub usingnamespace NodeInterface(Self);
+
+        pub const Input = N.Input;
+        pub const Output = init: {
+            const out: N.Output = undefined;
+            break :init @TypeOf(out ** size);
+        };
+
+        node: N = undefined,
+
+        pub fn init(self: *Self) void {
+            self.node.init();
+        }
+
+        pub fn eval(self: *Self, input: Input) Output {
+            const output = self.node.eval(input);
+            return output ** size;
+        }
+    };
 }
 
 fn Fork(A: type, B: type, comptime size: usize) type {
