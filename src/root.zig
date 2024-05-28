@@ -34,7 +34,7 @@ pub fn NodeInterface(comptime Self: type) type {
 }
 
 /// parallel operator : combine A and B in parallel
-fn Par(A: type, B: type) type {
+pub fn Par(A: type, B: type) type {
     return struct {
         pub usingnamespace NodeInterface(Self);
         const Self = @This();
@@ -66,7 +66,7 @@ test "parallel operator" {
 /// sequence operator, A --> B
 /// spare inputs of B are exposed as inputs of Seq
 /// spare outputs of A are exposed as outputs of Seq
-fn Seq(comptime A: type, comptime B: type) type {
+pub fn Seq(comptime A: type, comptime B: type) type {
     return struct {
         pub usingnamespace NodeInterface(Self);
         const Self = @This();
@@ -161,7 +161,7 @@ test "seq - spare outputs" {
 /// A --> B is delayed one sample to avoid infinite loop
 /// spare inputs of A are exposed as inputs of Rec
 /// spare outputs of A are exposed as outputs of Rec
-fn Rec(comptime A: type, comptime B: type) type {
+pub fn Rec(comptime A: type, comptime B: type) type {
     std.debug.assert(tup.len(B.Input) < tup.len(A.Output));
     std.debug.assert(tup.len(B.Output) < tup.len(A.Input));
 
@@ -253,33 +253,37 @@ pub fn Dup(N: type, comptime size: usize) type {
     };
 }
 
-fn Fork(A: type, B: type, comptime size: usize) type {
-    return struct {
-        const Self = @This();
-        pub usingnamespace NodeInterface(Self);
+// pub fn Fork(A: type, B: type, comptime size: usize) type {
+//     return struct {
+//         const Self = @This();
+//         pub usingnamespace NodeInterface(Self);
 
-        // FIXME il devrait y avoir aussi les entrées surnuméraire de B
-        pub const Input = A.Input;
-        pub const Output = init: {
-            const out: B.Output = undefined;
-            break :init @TypeOf(out ** size);
-        };
+//         const diff = @as(comptime_int, tup.len(A.Output)) - @as(comptime_int, tup.len(B.Input));
 
-        // TODO assert compatibility between A.Output and B.Input
+//         // A.Input + unmatched inputs of B
+//         pub const Input = init: {
+//             if (diff < 0) {
+//                 const b_input: B.Input = undefined;
+//             }
+//         };
+//         pub const Output = undefined;
 
-        array: [size]B = undefined,
+//         prev: A = undefined,
+//         next: [size]B = undefined,
 
-        pub fn init(self: *Self) void {
-            for (0..size) |i| {
-                self.array[i].init();
-            }
-        }
+//         pub fn init(self: *Self) void {
+//             self.prev.init();
+//             for (0..size) |i| {
+//                 self.next[i].init();
+//             }
+//         }
 
-        pub fn eval(_: *Self, input: Input) Output {
-            return input;
-        }
-    };
-}
+//         pub fn eval(self: *Self, input: Input) Output {
+//             const output = self.node.eval(input);
+//             return output ** size;
+//         }
+//     };
+// }
 
 /// simplest node : identity function
 pub fn Id(T: type) type {

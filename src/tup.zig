@@ -89,7 +89,7 @@ test "Split" {
 }
 
 /// split a tuple at pivot point
-fn split(tuple: anytype, comptime pivot: usize) Split(@TypeOf(tuple), pivot) {
+pub fn split(tuple: anytype, comptime pivot: usize) Split(@TypeOf(tuple), pivot) {
     var sp: Split(@TypeOf(tuple), pivot) = undefined;
     inline for (tuple, 0..) |value, index| {
         if (index < pivot) {
