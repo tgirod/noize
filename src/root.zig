@@ -260,25 +260,50 @@ pub fn Dup(N: type, comptime size: usize) type {
 
 //         const diff = @as(comptime_int, tup.len(A.Output)) - @as(comptime_int, tup.len(B.Input));
 
-//         // A.Input + unmatched inputs of B
 //         pub const Input = init: {
 //             if (diff < 0) {
+//                 // add spare inputs of B
+//                 const a_input: A.Input = undefined;
 //                 const b_input: B.Input = undefined;
+//                 const spare = tup.split(b_input, tup.len(A.Output))[1];
+//                 break :init @TypeOf(a_input ++ (spare ** size));
+//             } else {
+//                 break :init A.Input;
 //             }
 //         };
-//         pub const Output = undefined;
 
-//         prev: A = undefined,
-//         next: [size]B = undefined,
+//         pub const Output = init: {
+//             if (diff > 0) {
+//                 // add spare outputs of A
+//                 const a_output: A.Output = undefined;
+//                 const spare = tup.split(a_output, tup.len(B.Input))[1];
+//                 const b_output: B.Output = undefined;
+//                 break :init @TypeOf((b_output ** size) ++ spare);
+//             } else {
+//                 const b_output: B.Output = undefined;
+//                 break :init @TypeOf(b_output ** size);
+//             }
+//         };
+
+//         a: A = undefined,
+//         b: [size]B = undefined,
 
 //         pub fn init(self: *Self) void {
-//             self.prev.init();
+//             self.a.init();
 //             for (0..size) |i| {
-//                 self.next[i].init();
+//                 self.b[i].init();
 //             }
 //         }
 
 //         pub fn eval(self: *Self, input: Input) Output {
+//             if (diff < 0) {
+//                 // spare inputs of B are routed from the main input
+//                 const split = tup.split(input, tup.len(A.Input));
+//                 const input_a: A.Input = split[0];
+//                 const spare = split[1];
+//                 const output_a: A.Output = self.a.eval(input_a);
+//                 // TODO pour chaque B, construire son input avec output_a + un morceau de spare ... c'est l'enfer si on ne peut pas slicer les tuples
+//             }
 //             const output = self.node.eval(input);
 //             return output ** size;
 //         }
