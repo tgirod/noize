@@ -5,20 +5,57 @@ const Tuple = std.meta.Tuple;
 
 pub fn Slice(comptime T: type, start: usize, end: usize) type {
     const fields = std.meta.fields(T);
-    std.debug.assert(end < fields.len);
+    std.debug.assert(start <= end);
+    std.debug.assert(end <= fields.len);
     var types: [end - start]type = undefined;
     for (fields[start..end], 0..) |field, i| {
         types[i] = field.type;
     }
-    return Tuple(types);
+    return Tuple(&types);
 }
 
-pub fn slice(tuple: anytype, start: usize, end: usize) Slice(@TypeOf(tuple), start, end) {
+test "Slice" {
+    const T = struct { f32, u8, bool };
+    {
+        const s: Slice(T, 0, 2) = undefined;
+        try expectEqual(2, s.len);
+        try expectEqual(f32, @TypeOf(s[0]));
+        try expectEqual(u8, @TypeOf(s[1]));
+    }
+    {
+        const s: Slice(T, 1, 3) = undefined;
+        try expectEqual(2, s.len);
+        try expectEqual(u8, @TypeOf(s[0]));
+        try expectEqual(bool, @TypeOf(s[1]));
+    }
+    {
+        const s: Slice(T, 1, 1) = undefined;
+        try expectEqual(0, s.len);
+    }
+}
+
+pub fn slice(tuple: anytype, comptime start: usize, comptime end: usize) Slice(@TypeOf(tuple), start, end) {
     var result: Slice(@TypeOf(tuple), start, end) = undefined;
-    for (start..end) |i| {
+    inline for (start..end) |i| {
         result[i - start] = tuple[i];
     }
     return result;
+}
+
+test "slice" {
+    const t: struct { f32, u8, bool } = .{ 1, 2, false };
+    {
+        const s = slice(t, 0, 2);
+        try expectEqual(.{ @as(f32, 1), @as(u8, 2) }, s);
+    }
+    {
+        const s = slice(t, 1, 2);
+        try expectEqual(.{@as(u8, 2)}, s);
+    }
+    {
+        const s = slice(t, 1, 1);
+        try expectEqual(.{}, s);
+    }
 }
 
 /// check if two tuple types are identical
