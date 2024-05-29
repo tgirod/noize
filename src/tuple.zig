@@ -59,7 +59,7 @@ test "slice" {
 }
 
 /// check if two tuple types are identical
-pub fn eq(comptime A: type, comptime B: type) bool {
+pub fn typematch(comptime A: type, comptime B: type) bool {
     // TODO check A and B are tuples
     const fa = std.meta.fields(A);
     const fb = std.meta.fields(B);
@@ -74,15 +74,15 @@ pub fn eq(comptime A: type, comptime B: type) bool {
     return true;
 }
 
-test "eq" {
+test "typematch" {
     const A = struct { f32, u8 };
     const B = struct { f32, u8 };
     const C = struct { u8, f32 };
     const D = struct { u8 };
-    try expect(eq(A, A));
-    try expect(eq(A, B));
-    try expect(!eq(A, C));
-    try expect(!eq(A, D));
+    try expect(typematch(A, A));
+    try expect(typematch(A, B));
+    try expect(!typematch(A, C));
+    try expect(!typematch(A, D));
 }
 
 /// returns the length of a tuple type

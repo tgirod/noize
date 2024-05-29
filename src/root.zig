@@ -77,7 +77,7 @@ pub fn Seq(comptime A: type, comptime B: type) type {
             if (diff < 0) {
                 // add spare inputs of B
                 const sp: tup.Split(B.Input, tup.len(A.Output)) = undefined;
-                std.debug.assert(tup.eq(@TypeOf(sp[0]), A.Output));
+                std.debug.assert(tup.typematch(@TypeOf(sp[0]), A.Output));
                 break :init tup.Join(A.Input, @TypeOf(sp[1]));
             } else {
                 break :init A.Input;
@@ -88,7 +88,7 @@ pub fn Seq(comptime A: type, comptime B: type) type {
             if (diff > 0) {
                 // add spare outputs of A
                 const sp: tup.Split(A.Output, tup.len(B.Input)) = undefined;
-                std.debug.assert(tup.eq(@TypeOf(sp[0]), B.Input));
+                std.debug.assert(tup.typematch(@TypeOf(sp[0]), B.Input));
                 break :init tup.Join(B.Output, @TypeOf(sp[1]));
             } else {
                 break :init B.Output;
@@ -166,10 +166,10 @@ pub fn Rec(comptime A: type, comptime B: type) type {
     std.debug.assert(tup.len(B.Output) < tup.len(A.Input));
 
     const split_input: tup.Split(A.Input, tup.len(B.Output)) = undefined;
-    std.debug.assert(tup.eq(B.Output, @TypeOf(split_input[0])));
+    std.debug.assert(tup.typematch(B.Output, @TypeOf(split_input[0])));
 
     const split_output: tup.Split(A.Output, tup.len(B.Input)) = undefined;
-    std.debug.assert(tup.eq(B.Input, @TypeOf(split_output[0])));
+    std.debug.assert(tup.typematch(B.Input, @TypeOf(split_output[0])));
 
     return struct {
         const Self = @This();
