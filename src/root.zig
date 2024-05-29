@@ -5,7 +5,7 @@ const expect = std.testing.expect;
 const expectEqual = std.testing.expectEqual;
 const Tuple = std.meta.Tuple;
 
-const tup = @import("tup.zig");
+const tup = @import("tuple.zig");
 pub usingnamespace @import("backend.zig");
 
 test "test dispatch" {

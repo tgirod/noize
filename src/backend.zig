@@ -4,7 +4,7 @@ const c = @cImport({
     @cInclude("jack/jack.h");
 });
 
-const tup = @import("tup.zig");
+const tup = @import("tuple.zig");
 
 pub fn Backend(RootNode: type) type {
     const in = tup.len(RootNode.Input);

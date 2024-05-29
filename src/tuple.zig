@@ -3,6 +3,24 @@ const expect = std.testing.expect;
 const expectEqual = std.testing.expectEqual;
 const Tuple = std.meta.Tuple;
 
+pub fn Slice(comptime T: type, start: usize, end: usize) type {
+    const fields = std.meta.fields(T);
+    std.debug.assert(end < fields.len);
+    var types: [end - start]type = undefined;
+    for (fields[start..end], 0..) |field, i| {
+        types[i] = field.type;
+    }
+    return Tuple(types);
+}
+
+pub fn slice(tuple: anytype, start: usize, end: usize) Slice(@TypeOf(tuple), start, end) {
+    var result: Slice(@TypeOf(tuple), start, end) = undefined;
+    for (start..end) |i| {
+        result[i - start] = tuple[i];
+    }
+    return result;
+}
+
 /// check if two tuple types are identical
 pub fn eq(comptime A: type, comptime B: type) bool {
     // TODO check A and B are tuples
