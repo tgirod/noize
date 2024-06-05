@@ -407,3 +407,85 @@ pub fn Sin(comptime srate: f32) type {
         }
     };
 }
+
+pub fn BufWriter(T: type) type {
+    return struct {
+        const Self = @This();
+        pub usingnamespace NodeInterface(Self);
+
+        pub const Input = struct {
+            []T, // buffer address
+            T, // input signal
+        };
+
+        pub const Output = struct {
+            usize, // write index
+        };
+
+        index: usize = 0,
+
+        pub fn init(self: *Self) void {
+            self.index = 0;
+        }
+
+        pub fn eval(self: *Self, input: Input) Output {
+            var buf = input[0];
+            self.index = (self.index + 1) % buf.len;
+            buf[self.index] = input[1];
+            return .{self.index};
+        }
+    };
+}
+
+test "bufwriter" {
+    var buf = [1]u8{0} ** 3;
+
+    const N = BufWriter(u8);
+    var n = N{};
+    n.init();
+
+    try expectEqual(.{1}, n.eval(.{ &buf, 1 }));
+    try std.testing.expectEqualSlices(u8, &[3]u8{ 0, 1, 0 }, &buf);
+    try expectEqual(.{2}, n.eval(.{ &buf, 1 }));
+    try std.testing.expectEqualSlices(u8, &[3]u8{ 0, 1, 1 }, &buf);
+    try expectEqual(.{0}, n.eval(.{ &buf, 1 }));
+    try std.testing.expectEqualSlices(u8, &[3]u8{ 1, 1, 1 }, &buf);
+}
+
+pub fn BufReader(T: type) type {
+    return struct {
+        const Self = @This();
+        pub usingnamespace NodeInterface(Self);
+
+        pub const Input = struct {
+            []T, // buffer address
+            usize, // read index
+            // TODO change to float and add interpolation
+        };
+
+        pub const Output = struct {
+            T, // output signal
+        };
+
+        pub fn init(_: *Self) void {}
+
+        pub fn eval(_: *Self, input: Input) Output {
+            const buf = input[0];
+            const index = input[1];
+            return .{buf[index % buf.len]};
+        }
+    };
+}
+
+test "BufReader" {
+    var buf = [_]u8{ 1, 2, 3 };
+
+    const N = BufReader(u8);
+    var n = N{};
+    n.init();
+
+    try expectEqual(.{1}, n.eval(.{ &buf, 0 }));
+    try expectEqual(.{2}, n.eval(.{ &buf, 1 }));
+    try expectEqual(.{3}, n.eval(.{ &buf, 2 }));
+    try expectEqual(.{1}, n.eval(.{ &buf, 3 }));
+}
