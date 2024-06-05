@@ -460,7 +460,6 @@ pub fn BufReader(T: type) type {
         pub const Input = struct {
             []T, // buffer address
             usize, // read index
-            // TODO change to float and add interpolation
         };
 
         pub const Output = struct {
@@ -488,4 +487,38 @@ test "BufReader" {
     try expectEqual(.{2}, n.eval(.{ &buf, 1 }));
     try expectEqual(.{3}, n.eval(.{ &buf, 2 }));
     try expectEqual(.{1}, n.eval(.{ &buf, 3 }));
+}
+
+/// Linear interpolation of two inputs 0 and 1, based on the value of input 2
+pub fn Lerp(comptime T: type) type {
+    return struct {
+        const Self = @This();
+        pub usingnamespace NodeInterface(Self);
+
+        pub const Input = struct {
+            T, // first value
+            T, // second value
+            T, // interpolation factor
+        };
+
+        pub const Output = struct {
+            T, // output signal
+        };
+
+        pub fn init(_: *Self) void {}
+
+        pub fn eval(_: *Self, input: Input) Output {
+            return .{std.math.lerp(input[0], input[1], input[2])};
+        }
+    };
+}
+
+test "Lerp" {
+    const N = Lerp(f32);
+    var n = N{};
+    n.init();
+
+    try expectEqual(.{0}, n.eval(.{ 0, 10, 0 }));
+    try expectEqual(.{5}, n.eval(.{ 0, 10, 0.5 }));
+    try expectEqual(.{10}, n.eval(.{ 0, 10, 1 }));
 }
