@@ -522,3 +522,29 @@ test "Lerp" {
     try expectEqual(.{5}, n.eval(.{ 0, 10, 0.5 }));
     try expectEqual(.{10}, n.eval(.{ 0, 10, 1 }));
 }
+
+pub fn duration(comptime srate: f32) type {
+    return struct {
+        pub fn msec(n: f32) usize {
+            return @intFromFloat(srate * n / 1000);
+        }
+
+        pub fn sec(n: f32) usize {
+            return @intFromFloat(srate * n);
+        }
+
+        pub fn min(n: f32) usize {
+            return @intFromFloat(srate * n * 60);
+        }
+    };
+}
+
+test "duration" {
+    const sr = 48000;
+    const dur = duration(sr);
+
+    try expectEqual(sr, dur.sec(1));
+    try expectEqual(sr / 2, dur.sec(0.5));
+    try expectEqual(sr / 1000, dur.msec(1));
+    try expectEqual(sr * 60, dur.min(1));
+}
