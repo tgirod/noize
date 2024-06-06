@@ -148,3 +148,15 @@ Arbitrary inputs and outputs opens up many other possibilities. Here is a non-ex
 - enums to choose a value in a discrete list
 - optionals to express events ?
 
+## 2024-06-06 usability
+
+Now that I have introduced buffers, I tried to write a simple multi-tap delay. Turns out it is rather complicated. I must admit my little experiment has a very poor usability. It is much more verbose than FAUST (I expected that) but in the end not really easier to read.
+
+In essence, any audio processing is passing data through a digraph - each node processes its input to generate its output and pass it along the graph. At the end, the nodes unmatched inputs and outputs are the program's inputs and outputs.
+
+I think most audio libraries are following a patch metaphor: define ugens at comptime, instanciate them at runtime and patch them together however you want. It is quite easy to reason about, because you get to declare each connection explicitely.
+
+FAUST (and noize) takes a different approach to construct this digraph. Instead of nodes, FAUST defines a set of basic blocks, and a set of operators to combine those blocks into more complex blocks. The resulting data structure is a tree, but its evaluation can contain loops, thanks to the recursive operator. This is really powerful because the whole processing pipeline is defined at comptime, giving the compiler the opportunity to optimize things away.
+
+Alas, this does not come for free. Blocks expose arrays of inputs and outputs, and operators don't address inputs and outputs individually. As blocks grow, it gets complicated to reason about.
+
