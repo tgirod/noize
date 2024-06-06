@@ -414,8 +414,8 @@ pub fn BufWriter(T: type) type {
         pub usingnamespace NodeInterface(Self);
 
         pub const Input = struct {
-            []T, // buffer address
             T, // input signal
+            []T, // buffer address
         };
 
         pub const Output = struct {
@@ -429,9 +429,9 @@ pub fn BufWriter(T: type) type {
         }
 
         pub fn eval(self: *Self, input: Input) Output {
-            var buf = input[0];
+            var buf = input[1];
             self.index = (self.index + 1) % buf.len;
-            buf[self.index] = input[1];
+            buf[self.index] = input[0];
             return .{self.index};
         }
     };
@@ -444,11 +444,11 @@ test "bufwriter" {
     var n = N{};
     n.init();
 
-    try expectEqual(.{1}, n.eval(.{ &buf, 1 }));
+    try expectEqual(.{1}, n.eval(.{ 1, &buf }));
     try std.testing.expectEqualSlices(u8, &[3]u8{ 0, 1, 0 }, &buf);
-    try expectEqual(.{2}, n.eval(.{ &buf, 1 }));
+    try expectEqual(.{2}, n.eval(.{ 1, &buf }));
     try std.testing.expectEqualSlices(u8, &[3]u8{ 0, 1, 1 }, &buf);
-    try expectEqual(.{0}, n.eval(.{ &buf, 1 }));
+    try expectEqual(.{0}, n.eval(.{ 1, &buf }));
     try std.testing.expectEqualSlices(u8, &[3]u8{ 1, 1, 1 }, &buf);
 }
 
@@ -458,8 +458,8 @@ pub fn BufReader(T: type) type {
         pub usingnamespace NodeInterface(Self);
 
         pub const Input = struct {
-            []T, // buffer address
             usize, // read index
+            []T, // buffer address
         };
 
         pub const Output = struct {
@@ -469,8 +469,8 @@ pub fn BufReader(T: type) type {
         pub fn init(_: *Self) void {}
 
         pub fn eval(_: *Self, input: Input) Output {
-            const buf = input[0];
-            const index = input[1];
+            const index = input[0];
+            const buf = input[1];
             return .{buf[index % buf.len]};
         }
     };
@@ -483,10 +483,10 @@ test "BufReader" {
     var n = N{};
     n.init();
 
-    try expectEqual(.{1}, n.eval(.{ &buf, 0 }));
-    try expectEqual(.{2}, n.eval(.{ &buf, 1 }));
-    try expectEqual(.{3}, n.eval(.{ &buf, 2 }));
-    try expectEqual(.{1}, n.eval(.{ &buf, 3 }));
+    try expectEqual(.{1}, n.eval(.{ 0, &buf }));
+    try expectEqual(.{2}, n.eval(.{ 1, &buf }));
+    try expectEqual(.{3}, n.eval(.{ 2, &buf }));
+    try expectEqual(.{1}, n.eval(.{ 3, &buf }));
 }
 
 /// Linear interpolation of two inputs 0 and 1, based on the value of input 2
