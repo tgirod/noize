@@ -160,3 +160,6 @@ FAUST (and noize) takes a different approach to construct this digraph. Instead 
 
 Alas, this does not come for free. Blocks expose arrays of inputs and outputs, and operators don't address inputs and outputs individually. As blocks grow, it gets complicated to reason about.
 
+## 2024-06-13 passing a pointer at comptime
+
+Turns out it is possible to pass a pointer at comptime. If you define a container level variable, it will be allocated in the static memory of the program. Even though its content might not be defined at comptime, at least its address will be!
